@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdCopy Pro - AI-Powered Ad Copy Generator</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fas fa-magic"></i> AdCopy Pro</h1>
+            <p>AI-Powered Ad Copy Generation & Optimization</p>
+            <nav class="main-nav">
+                <a href="/" class="active"><i class="fas fa-home"></i> Home</a>
+                <a href="/feedback"><i class="fas fa-comment-alt"></i> Feedback</a>
+                <a href="/documents"><i class="fas fa-book"></i> Knowledge Base</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="card">
+            <h2><i class="fas fa-edit"></i> Generate Ad Copy</h2>
+            <form id="rewriteForm">
+                <div class="form-group">
+                    <label for="adText">Original Ad Text</label>
+                    <textarea 
+                        id="adText" 
+                        placeholder="Paste your ad content here..."
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="tone">Tone</label>
+                    <select id="tone" required>
+                        <option value="professional">Professional</option>
+                        <option value="casual">Casual</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="fun">Fun</option>
+                        <option value="witty">Witty</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="platform">Platform</label>
+                    <select id="platform" required>
+                        <option value="Google Ads">Google Ads</option>
+                        <option value="Facebook">Facebook</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Twitter">Twitter</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-magic"></i> Generate Ad Copy
+                </button>
+            </form>
+        </section>
+
+        <section class="card" id="resultSection" style="display: none;">
+            <h2><i class="fas fa-scroll"></i> Your Optimized Ad</h2>
+            <div class="result-card">
+                <div id="result"></div>
+                <button id="copyBtn" class="btn btn-accent mt-2">
+                    <i class="far fa-copy"></i> Copy to Clipboard
+                </button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>Generating your ad copy...</p>
+            </div>
+            
+            <div id="successAlert" class="alert alert-success" style="display: none;"></div>
+            <div id="errorAlert" class="alert alert-error" style="display: none;"></div>
+        </section>
+    </main>
+
+    <footer class="text-center mt-4 mb-2">
+        <p>© 2025 AdCopy Pro. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const rewriteForm = document.getElementById('rewriteForm');
+        const resultSection = document.getElementById('resultSection');
+        const loadingElement = document.getElementById('loading');
+        const successAlert = document.getElementById('successAlert');
+        const errorAlert = document.getElementById('errorAlert');
+
+        // Show/Hide loading state
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loadingElement.style.display = 'block';
+                resultSection.style.display = 'none';
+                hideAlerts();
+            } else {
+                loadingElement.style.display = 'none';
+                resultSection.style.display = 'block';
+            }
+        }
+
+        // Show success/error messages
+        function showAlert(message, type = 'success') {
+            hideAlerts();
+            const alertElement = type === 'success' ? successAlert : errorAlert;
+            alertElement.textContent = message;
+            alertElement.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alertElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function hideAlerts() {
+            successAlert.style.display = 'none';
+            errorAlert.style.display = 'none';
+        }
+
+        // Store ad data in localStorage for feedback
+        function storeAdData(originalText, rewrittenText, tone, platform) {
+            const adData = {
+                originalText: originalText,
+                rewrittenText: rewrittenText,
+                tone: tone,
+                platform: platform,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('lastAdData', JSON.stringify(adData));
+        }
+
+        // Form submission for ad generation
+        rewriteForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const adText = document.getElementById('adText').value.trim();
+            const tone = document.getElementById('tone').value;
+            const platform = document.getElementById('platform').value;
+
+            if (!adText) {
+                showAlert('Please enter some text to generate ad copy.', 'error');
+                return;
+            }
+
+            try {
+                setLoading(true);
+                
+                const response = await fetch('/run-agent/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        input_text: adText,
+                        tone: tone,
+                        platform: platform
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                const rewrittenText = data.rewritten_ad;
+                
+                // Store the ad data for feedback
+                storeAdData(adText, rewrittenText, tone, platform);
+                
+                document.getElementById('result').innerHTML = rewrittenText 
+                    ? rewrittenText.replace(/\n/g, '<br>')
+                    : '<p class="error">Error: Could not generate ad copy. Please try again.</p>';
+                
+                // Scroll to results
+                resultSection.scrollIntoView({ behavior: 'smooth' });
+                showAlert('Ad copy generated successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Failed to generate ad copy. Please try again later.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Feedback form submission
+        document.getElementById('feedbackForm')?.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const feedbackText = document.getElementById('feedbackText')?.value.trim();
+            const feedbackMessage = document.getElementById('feedbackMessage');
+            
+            if (!feedbackText) {
+                showAlert('Please provide some feedback before submitting.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        feedback: feedbackText,
+                        original_text: '',  // Will be filled from localStorage
+                        rewritten_text: document.getElementById('result')?.textContent || '',
+                        tone: '',  // Will be filled from localStorage
+                        platform: '',  // Will be filled from localStorage
+                        rating: 0  // Will be filled by the rating buttons
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message || 'Thank you for your feedback!', 'success');
+                    this.reset();
+                } else {
+                    throw new Error(data.detail || 'Failed to submit feedback');
+                }
+            } catch (error) {
+                console.error('Error submitting feedback:', error);
+                showAlert(error.message || 'Failed to submit feedback. Please try again.', 'error');
+            }
+        });
+
+        // Copy to clipboard functionality
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            const resultText = document.getElementById('result').textContent;
+            navigator.clipboard.writeText(resultText).then(() => {
+                showAlert('Ad copy copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                showAlert('Failed to copy text to clipboard', 'error');
+            });
+        });
+
+        // View RAG documents
+        async function viewRagDocs() {
+            const ragDocsDiv = document.getElementById('ragDocs');
+            if (!ragDocsDiv) {
+                console.warn('RAG documents container not found');
+                return;
+            }
+
+            ragDocsDiv.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Loading documents...</p></div>';
+            
+            try {
+                const response = await fetch('/rag-docs');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.documents && data.documents.length > 0) {
+                    const formattedDocs = data.documents.map(doc => 
+                        `<div class="document-item">
+                            <p>${doc.replace(/\n/g, '<br>')}</p>
+                            <hr class="document-divider">
+                        </div>`
+                    ).join('');
+                    ragDocsDiv.innerHTML = formattedDocs;
+                } else {
+                    ragDocsDiv.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No documents found in the knowledge base.</p></div>';
+                }
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                ragDocsDiv.innerHTML = '<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> Error loading documents. Please try again later.</div>';
+            }
+        }
+
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add any initialization code here
+            console.log('AdCopy Pro initialized');
+        });
+    </script>
+</body>
+</html>

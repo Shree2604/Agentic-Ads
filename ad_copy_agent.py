@@ -1,13 +1,10 @@
 import os
 from typing import TypedDict
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.runnable import Runnable
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import SentenceTransformerEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,7 +12,8 @@ load_dotenv()
 # Get the Google API key from environment variables
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 if not GOOGLE_API_KEY:
-    raise ValueError("GOOGLE_API_KEY not found in environment variables. Please check your .env file.")
+    raise ValueError(
+        "GOOGLE_API_KEY not found in environment variables. Please check your .env file.")
 
 # Define the input/output schema for LangGraph nodes
 class RewriteState(TypedDict):
@@ -28,7 +26,7 @@ class RewriteState(TypedDict):
 
 # Build your LLM with the API key from environment variables
 llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
+    model="gemini-2.0-flash-lite",
     google_api_key=GOOGLE_API_KEY,
     temperature=0.7
 )
@@ -37,6 +35,7 @@ llm = ChatGoogleGenerativeAI(
 rewrite_prompt = ChatPromptTemplate.from_template(
     """
         You are an expert ad copywriter. Your goal is to rewrite the given ad text.
+        Give the output in plain text, without any formatting.
         Original Ad: {input_text}
         Target Tone: {tone}
         Target Platform: {platform}
@@ -46,7 +45,7 @@ rewrite_prompt = ChatPromptTemplate.from_template(
 
         Rewritten Ad:
         """
-    )
+)
 
 # Create a runnable chain
 rewrite_chain: Runnable = (
