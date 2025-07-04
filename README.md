@@ -1,7 +1,5 @@
 # AdCopy Pro - AI-Powered Ad Copy Generator
 
-![AdCopy Pro Logo](static/images/logo.png)
-
 AdCopy Pro is an advanced AI-powered platform that helps marketers create optimized ad copy for various platforms. It uses Graph RAG and Agentic RAG techniques to generate high-quality, platform-specific ad content that resonates with your target audience.
 
 ## 🌟 Key Features
