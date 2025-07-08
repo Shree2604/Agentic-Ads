@@ -1,6 +1,5 @@
 # AdCopy Pro - AI-Powered Ad Copy Generator
 
-![AdCopy Pro Logo](static/images/logo.png)
 
 AdCopy Pro is an advanced AI-powered platform that helps marketers create optimized ad copy for various platforms. It uses Graph RAG and Agentic RAG techniques to generate high-quality, platform-specific ad content that resonates with your target audience.
 
@@ -73,8 +72,17 @@ AdCopy Pro is an advanced AI-powered platform that helps marketers create optimi
    ```
 
 3. **Install Python dependencies**
+   You can use either pip or uv (faster alternative to pip):
+   
+   Using pip:
    ```bash
    pip install -r requirements.txt
+   ```
+   
+   Using uv (faster):
+   ```bash
+   pip install uv
+   uv pip install -r requirements.txt
    ```
 
 4. **Set up environment variables**
@@ -86,11 +94,18 @@ AdCopy Pro is an advanced AI-powered platform that helps marketers create optimi
 
 ## 🏃 Running the Application
 
-### Development Mode
-```bash
-# Start the FastAPI server with hot reload
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
+1. First, install `uv` if you haven't already:
+   ```bash
+   pip install uv
+   ```
+
+2. Run the application using:
+   ```bash
+   uvsync
+   uv run --fastapi dev app.py
+   ```
+
+   This will start the development server with hot reloading enabled.
 
 ### Production Mode
 For production deployment, use Gunicorn with Uvicorn workers:
