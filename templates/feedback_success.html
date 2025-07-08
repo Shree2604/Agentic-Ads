@@ -15,7 +15,8 @@
             <p>Share your thoughts to help us improve</p>
             <nav class="main-nav">
                 <a href="/"><i class="fas fa-home"></i> Home</a>
-                <a href="/feedback" class="active"><i class="fas fa-comment-alt"></i> Feedback</a>
+                <a href="/feedback" class="active"><i class="fas fa-comment-alt"></i> Submit Feedback</a>
+                <a href="/feedback/list"><i class="fas fa-list"></i> View Feedback</a>
                 <a href="/documents"><i class="fas fa-book"></i> Knowledge Base</a>
             </nav>
         </div>
@@ -129,27 +130,34 @@
             e.preventDefault();
             
             const form = e.target;
-            const formData = new FormData(form);
             const submitBtn = form.querySelector('button[type="submit"]');
             const feedbackMessage = document.getElementById('feedbackMessage');
             
-            // Validate rating
-            if (!formData.get('rating')) {
+            // Get the rating value
+            const ratingInput = document.querySelector('.rating-btn.active');
+            if (!ratingInput) {
                 feedbackMessage.textContent = 'Please select a rating before submitting.';
                 feedbackMessage.style.display = 'block';
                 return;
             }
+            const rating = ratingInput ? ratingInput.dataset.rating : 0;
             
             try {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
                 
-                // Convert FormData to JSON
-                const feedbackData = {};
-                formData.forEach((value, key) => {
-                    feedbackData[key] = value;
-                });
+                // Prepare feedback data
+                const feedbackData = {
+                    original_text: document.getElementById('originalText').value,
+                    rewritten_text: document.getElementById('rewrittenText').value,
+                    tone: document.getElementById('tone').value,
+                    platform: document.getElementById('platform').value,
+                    rating: parseInt(rating),
+                    feedback: document.getElementById('feedbackText').value,
+                    suggested_improvement: document.getElementById('suggestion').value
+                };
                 
+                // Send feedback to server
                 const response = await fetch('/api/feedback', {
                     method: 'POST',
                     headers: {
@@ -161,23 +169,8 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    feedbackMessage.innerHTML = `
-                        <i class="fas fa-check-circle"></i>
-                        <div>${data.message}</div>
-                        <div class="suggestion">${data.suggestion}</div>
-                    `;
-                    feedbackMessage.className = 'alert alert-success';
-                    feedbackMessage.style.display = 'flex';
-                    form.reset();
-                    
-                    // Clear active rating
-                    document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
-                    document.getElementById('rating').value = '';
-                    
-                    // Hide message after 5 seconds
-                    setTimeout(() => {
-                        feedbackMessage.style.display = 'none';
-                    }, 8000);
+                    // Redirect to feedback list page on success
+                    window.location.href = data.redirect || '/feedback/list';
                 } else {
                     throw new Error(data.detail || 'Failed to submit feedback');
                 }
@@ -186,6 +179,12 @@
                     <i class="fas fa-exclamation-circle"></i>
                     <div>${error.message || 'An error occurred. Please try again later.'}</div>
                 `;
+                feedbackMessage.className = 'alert alert-danger';
+                feedbackMessage.style.display = 'flex';
+                
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Feedback';
                 feedbackMessage.className = 'alert alert-error';
                 feedbackMessage.style.display = 'flex';
                 console.error('Error:', error);

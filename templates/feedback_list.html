@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submitted Feedback - AdCopy Pro</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .feedback-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .feedback-platform {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .feedback-tone {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 8px;
+        }
+        
+        .feedback-content {
+            margin: 12px 0;
+        }
+        
+        .feedback-original, .feedback-rewritten {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+            border-left: 3px solid #dee2e6;
+        }
+        
+        .feedback-original {
+            border-left-color: #ffc107;
+        }
+        
+        .feedback-rewritten {
+            border-left-color: #4caf50;
+        }
+        
+        .feedback-label {
+            font-weight: 600;
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+        
+        .feedback-suggestion {
+            margin-top: 12px;
+            padding: 12px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            font-style: italic;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3em;
+            color: #dee2e6;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fas fa-comments"></i> Submitted Feedback</h1>
+            <p>View all submitted feedback</p>
+            <nav class="main-nav">
+                <a href="/"><i class="fas fa-home"></i> Home</a>
+                <a href="/feedback"><i class="fas fa-comment-alt"></i> Submit Feedback</a>
+                <a href="/feedback/list" class="active"><i class="fas fa-list"></i> View Feedback</a>
+                <a href="/documents"><i class="fas fa-book"></i> Knowledge Base</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="card">
+            <div class="feedback-filters" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <h2>User Feedback</h2>
+                <a href="/" class="btn">
+                    <i class="fas fa-home"></i> Back to Home
+                </a>
+            </div>
+            
+            {% if feedback_list %}
+                <div class="feedback-list" id="feedbackList">
+                    {% for feedback in feedback_list %}
+                    <div class="feedback-card" style="margin-bottom: 2rem; padding: 1.5rem; border-left: 4px solid #4caf50; background: #fff; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div class="feedback-header" style="display: flex; justify-content: space-between; margin-bottom: 1rem; color: #666;">
+                            <span><i class="far fa-clock"></i> {{ feedback.timestamp or 'Just now' }}</span>
+                            {% if feedback.rating %}
+                            <span>
+                                {% for i in range(feedback.rating|int) %}
+                                    <i class="fas fa-star" style="color: #ffc107;"></i>
+                                {% endfor %}
+                                {% for i in range(5 - (feedback.rating|int)) %}
+                                    <i class="far fa-star" style="color: #ddd;"></i>
+                                {% endfor %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="feedback-content">
+                            {% if feedback.feedback %}
+                            <div class="feedback-comment" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                                <div class="feedback-label" style="font-weight: 600; color: #444; margin-bottom: 0.5rem;">Feedback:</div>
+                                <p style="margin: 0; color: #333;">{{ feedback.feedback }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if feedback.suggested_improvement %}
+                            <div class="feedback-suggestion" style="padding: 1rem; background: #e8f5e9; border-radius: 4px;">
+                                <div style="font-weight: 600; color: #2e7d32; margin-bottom: 0.5rem;">Suggestion:</div>
+                                <p style="margin: 0; color: #1b5e20;">{{ feedback.suggested_improvement }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="far fa-comment-dots"></i>
+                    <h3>No feedback submitted yet</h3>
+                    <p>Be the first to share your thoughts and help us improve!</p>
+                    <a href="/feedback" class="btn" style="margin-top: 1rem;">
+                        <i class="fas fa-paper-plane"></i> Submit Feedback
+                    </a>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <footer class="text-center mt-4 mb-2">
+        <p> 2025 AdCopy Pro. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Simple initialization if needed
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Feedback list page loaded');
+            // Any additional initialization code can go here
+        });
+    </script>
+</body>
+</html>
