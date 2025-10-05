@@ -1,0 +1,83 @@
+import React from 'react';
+import { WelcomePage } from '@/pages/WelcomePage/WelcomePage';
+import { AppPage } from '@/pages/AppPage/AppPage';
+import { AdminPage } from '@/pages/AdminPage/AdminPage';
+import { AdminLogin } from '@/components/AdminLogin/AdminLogin';
+import { FeedbackModal } from '@/components/FeedbackModal/FeedbackModal';
+import { useAppState } from '@/hooks/useAppState';
+import { useDataState } from '@/hooks/useDataState';
+import { useAdGeneration } from '@/hooks/useAdGeneration';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useFeedbackHandler } from '@/hooks/useFeedbackHandler';
+import './App.css';
+
+const App: React.FC = () => {
+  const appState = useAppState();
+  const dataState = useDataState();
+  const adGeneration = useAdGeneration(appState, dataState);
+  const adminAuth = useAdminAuth(appState);
+  const feedbackHandler = useFeedbackHandler(appState, dataState);
+
+  const renderCurrentView = () => {
+    switch (appState.currentView) {
+      case 'welcome':
+        return (
+          <WelcomePage
+            menuOpen={appState.menuOpen}
+            setMenuOpen={appState.setMenuOpen}
+            onAdminClick={() => appState.setShowAdminLogin(true)}
+            onGetStartedClick={() => appState.setCurrentView('app')}
+          />
+        );
+      
+      case 'app':
+        return (
+          <AppPage
+            formData={appState.formData}
+            setFormData={appState.setFormData}
+            generating={appState.generating}
+            result={appState.result}
+            onGenerate={adGeneration.handleGenerate}
+            onBackToWelcome={() => appState.setCurrentView('welcome')}
+            onActionClick={feedbackHandler.handleActionClick}
+          />
+        );
+      
+      case 'admin':
+        return (
+          <AdminPage
+            generationHistory={dataState.generationHistory}
+            feedbackList={dataState.feedbackList}
+            onLogout={adminAuth.handleAdminLogout}
+          />
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="app">
+      {renderCurrentView()}
+      
+      <AdminLogin
+        isOpen={appState.showAdminLogin}
+        onClose={() => appState.setShowAdminLogin(false)}
+        credentials={appState.adminCredentials}
+        setCredentials={appState.setAdminCredentials}
+        onLogin={adminAuth.handleAdminLogin}
+      />
+
+      <FeedbackModal
+        isOpen={appState.showFeedbackModal}
+        onClose={() => appState.setShowFeedbackModal(false)}
+        feedback={appState.feedback}
+        setFeedback={appState.setFeedback}
+        onSubmit={feedbackHandler.submitFeedback}
+      />
+    </div>
+  );
+};
+
+export default App;
