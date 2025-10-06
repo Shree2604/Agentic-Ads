@@ -17,7 +17,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   feedbackList,
   onLogout
 }) => {
-  const avgRating = feedbackList.length > 0 
+  const avgRating = feedbackList.length > 0
     ? (feedbackList.reduce((sum, f) => sum + f.rating, 0) / feedbackList.length).toFixed(1)
     : '0.0';
   const totalUsers = new Set(feedbackList.map(f => f.email)).size;
@@ -246,9 +246,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         <option value="">All Platforms</option>
                         <option value="Instagram">Instagram</option>
                         <option value="LinkedIn">LinkedIn</option>
-                        <option value="TikTok">TikTok</option>
-                        <option value="Facebook">Facebook</option>
                         <option value="Twitter">Twitter</option>
+                        <option value="YouTube">YouTube</option>
                       </select>
                       <select className="activity-filter">
                         <option value="">All Status</option>

@@ -1,15 +1,15 @@
 import { useCallback } from 'react';
 import { useAppState } from './useAppState';
-import { useDataState } from './useDataState';
+import { useApiData } from './useApiData';
 
-export const useAdGeneration = (appState: ReturnType<typeof useAppState>, dataState: ReturnType<typeof useDataState>) => {
+export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiData: ReturnType<typeof useApiData>) => {
   const handleGenerate = useCallback(async () => {
     appState.setGenerating(true);
     
     // Simulate API call
-    setTimeout(() => {
+    setTimeout(async () => {
       const newGeneration = {
-        id: dataState.generationHistory.length + 1,
+        id: 0, // Will be set by backend
         date: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         platform: appState.formData.platform,
@@ -19,7 +19,14 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, dataSt
         status: 'Completed'
       };
       
-      dataState.setGenerationHistory([newGeneration, ...dataState.generationHistory]);
+      if (appState.adminToken) {
+        try {
+          await apiData.addGenerationHistory(newGeneration);
+        } catch (error) {
+          console.error('Failed to save generation:', error);
+          alert('Unable to persist generation history. Please try again.');
+        }
+      }
       
       appState.setResult({
         rewrittenText: "🚀 Ready to level up your fitness game? Our revolutionary app brings personal training to your pocket! Join 10K+ users transforming their lives. #FitnessRevolution #GetFit",
@@ -29,7 +36,7 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, dataSt
       
       appState.setGenerating(false);
     }, 3000);
-  }, [appState, dataState]);
+  }, [appState, apiData]);
 
   return { handleGenerate };
 };

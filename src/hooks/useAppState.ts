@@ -10,7 +10,11 @@ export const useAppState = () => {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState<FeedbackType>(null);
+  const [adminToken, setAdminToken] = useState<string | null>(() => localStorage.getItem('adminToken'));
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    if (adminToken) {
+      return true;
+    }
     return localStorage.getItem('isAdminAuthenticated') === 'true';
   });
   const [generating, setGenerating] = useState(false);
@@ -21,16 +25,30 @@ export const useAppState = () => {
     localStorage.setItem('currentView', currentView);
   }, [currentView]);
 
+  useEffect(() => {
+    if (adminToken) {
+      localStorage.setItem('adminToken', adminToken);
+    } else {
+      localStorage.removeItem('adminToken');
+    }
+  }, [adminToken]);
+
+  useEffect(() => {
+    localStorage.setItem('isAdminAuthenticated', isAdminAuthenticated ? 'true' : 'false');
+  }, [isAdminAuthenticated]);
+
   const clearAppState = useCallback(() => {
     localStorage.removeItem('currentView');
     localStorage.removeItem('isAdminAuthenticated');
+    localStorage.removeItem('adminToken');
   }, []);
 
   const resetToWelcome = useCallback(() => {
     setCurrentView('welcome');
     setIsAdminAuthenticated(false);
+    setAdminToken(null);
     clearAppState();
-  }, [clearAppState]);
+  }, [clearAppState, setAdminToken]);
 
   const [formData, setFormData] = useState<FormData>({
     adText: '',
@@ -69,6 +87,8 @@ export const useAppState = () => {
     setGenerating,
     result,
     setResult,
+    adminToken,
+    setAdminToken,
     formData,
     setFormData,
     feedback,

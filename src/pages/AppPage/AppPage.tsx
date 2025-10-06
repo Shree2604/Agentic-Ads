@@ -23,7 +23,7 @@ export const AppPage: React.FC<AppPageProps> = ({
   onBackToWelcome,
   onActionClick
 }) => {
-  const platforms: Platform[] = ['Instagram', 'LinkedIn', 'TikTok', 'Facebook', 'Twitter'];
+  const platforms: Platform[] = ['Instagram', 'LinkedIn', 'Twitter', 'YouTube'];
   const tones: Tone[] = ['professional', 'casual', 'energetic', 'fun', 'witty'];
   const outputTypes: OutputType[] = [
     { id: 'text', label: 'Rewritten Text', icon: Type },

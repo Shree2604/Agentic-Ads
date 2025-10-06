@@ -86,9 +86,8 @@ export const InsightsPage: React.FC<InsightsPageProps> = ({
               <option value="">All Platforms</option>
               <option value="Instagram">Instagram</option>
               <option value="LinkedIn">LinkedIn</option>
-              <option value="TikTok">TikTok</option>
-              <option value="Facebook">Facebook</option>
               <option value="Twitter">Twitter</option>
+              <option value="YouTube">YouTube</option>
             </select>
           </div>
         </div>

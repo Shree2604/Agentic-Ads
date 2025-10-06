@@ -4,26 +4,37 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
 
 ## 🚀 Features
 
-- **Multi-Platform Support**: Generate ads for Instagram, LinkedIn, TikTok, Facebook, and Twitter
+- **Multi-Platform Support**: Generate ads for Instagram, LinkedIn, Twitter, and YouTube
 - **AI-Powered Content Creation**: Smart text rewriting with different tones
 - **Multimodal Generation**: Create text, poster images, and video reels
 - **Brand Integration**: Automatic logo overlay and brand consistency
 - **Advanced Admin Dashboard**: Monitor usage, feedback, and analytics with multi-page navigation
 - **Card-Based Activity View**: Beautiful card interface for recent activity with filtering
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Secure Admin Access**: JWT-protected admin APIs with session storage
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 18 with TypeScript
+- **Backend**: FastAPI with Python
+- **Database**: MongoDB with Motor (async driver)
 - **Build Tool**: Vite
 - **Styling**: CSS3 with CSS Variables and Glass Morphism effects
 - **Icons**: Lucide React
 - **State Management**: React Hooks (Custom hooks following SOLID principles)
+- **Data Persistence**: RESTful API with MongoDB backend
 - **Charts & Visualizations**: Custom SVG-based charts for analytics
+- **Authentication**: JWT-based admin login with token storage in localStorage
 
 ## 📁 Project Structure
 
 ```
+backend/
+├── main.py              # FastAPI application entry point
+├── requirements.txt     # Backend dependencies
+├── .env.example         # Sample environment configuration
+└── ...
+│ 
 src/
 ├── components/           # Reusable UI components
 │   ├── ui/              # Basic UI components (Button, Modal, Input, etc.)
@@ -38,7 +49,7 @@ src/
 │   └── InsightsPage/    # Customer insights page
 ├── hooks/               # Custom React hooks
 │   ├── useAppState.ts   # Main application state
-│   ├── useDataState.ts  # Data management state
+│   ├── useApiData.ts    # Data fetching and persistence layer
 │   ├── useAdGeneration.ts # Ad generation logic
 │   ├── useAdminAuth.ts  # Admin authentication
 │   └── useFeedbackHandler.ts # Feedback handling
@@ -49,79 +60,62 @@ src/
 
 ## 🏗️ Architecture & Design Principles
 
-This project follows **SOLID principles**:
+This project follows **SOLID principles** and implements a clean, modular architecture:
 
-- **Single Responsibility**: Each component has a single, well-defined purpose
-- **Open/Closed**: Components are open for extension but closed for modification
-- **Liskov Substitution**: Components can be replaced with their subtypes
-- **Interface Segregation**: Interfaces are specific to client needs
-- **Dependency Inversion**: High-level modules don't depend on low-level modules
+### SOLID Principles Implementation
+
+- **Single Responsibility Principle (SRP)**: Each component, hook, and service has a single, well-defined purpose
+- **Open/Closed Principle (OCP)**: Components are open for extension (new platforms, features) but closed for modification
+- **Liskov Substitution Principle (LSP)**: Components can be replaced with their subtypes without affecting functionality
+- **Interface Segregation Principle (ISP)**: TypeScript interfaces are specific to client needs, avoiding bloated interfaces
+- **Dependency Inversion Principle (DIP)**: High-level modules depend on abstractions (hooks, services) rather than concrete implementations
 
 ### Key Architectural Decisions
 
-1. **Component Separation**: Monolithic component split into focused, reusable components
-2. **Custom Hooks**: Business logic extracted into custom hooks for reusability
-3. **Type Safety**: Full TypeScript implementation with proper interfaces
-4. **CSS Modularity**: Component-specific CSS files for better maintainability
-5. **State Management**: Centralized state management using custom hooks
-6. **Multi-Page Navigation**: Separate pages for detailed views with state management
+1. **Full-Stack Separation**: Clear separation between React frontend and FastAPI backend
+2. **API-First Design**: All data flows through RESTful API endpoints with MongoDB persistence
+3. **Component Modularity**: Atomic, reusable components with clear responsibilities
+4. **Custom Hooks Pattern**: Business logic extracted into focused, testable hooks
+5. **Type Safety**: Comprehensive TypeScript implementation with strict interfaces
+6. **CSS Architecture**: Component-scoped styling for maintainability and isolation
+7. **State Management**: Centralized yet modular state management with API integration
+8. **Multi-Page Architecture**: Dedicated page components for complex views with shared state
 
-## 🚀 Getting Started
+### Data Flow Architecture
 
-### Prerequisites
-
-- Node.js (version 16 or higher)
-- npm or yarn package manager
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Shree2604/Agentic-Ads.git
-   cd Agentic-Ads
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-3. **Start the development server**
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-4. **Open your browser**
-   Navigate to `http://localhost:3000` to view the application
-
-### Building for Production
-
-```bash
-npm run build
-# or
-yarn build
+```
+User Action → React Component → Custom Hook → API Call → FastAPI → MongoDB → Response → Hook → Component → UI Update
 ```
 
-The built files will be in the `dist/` directory.
+- **Frontend Hooks**: `useApiData`, `useAdGeneration`, `useFeedbackHandler` handle API communication
+- **Backend Services**: FastAPI endpoints provide CRUD operations for all data
+- **Database Layer**: MongoDB stores all generation history, feedback, and analytics data
+- **Authentication Middleware**: `get_current_admin()` guards protected endpoints by verifying JWT tokens issued by `/api/auth/login`
+- **Real-time Updates**: All dashboard data reflects actual usage from MongoDB
 
-### Preview Production Build
+## ⚙️ Setup & Development
+
+Full backend and frontend setup instructions live in [`SETUP.md`](./SETUP.md). It covers:
+
+- **Backend (FastAPI + MongoDB)** installation, environment variables, and API routes
+- **Frontend (React + Vite)** installation, dev workflow, and production build steps
+- Troubleshooting tips for common issues
+- Authentication setup and environment configuration
+
+Quick start commands:
 
 ```bash
-npm run preview
-# or
-yarn preview
+# Frontend
+npm install
+npm run dev
+
+# Backend
+cd backend
+pip install -r requirements.txt
+python main.py
 ```
 
-## 🔧 Available Scripts
-
-- `npm run dev` - Start development server (port 5173)
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
+Refer to `SETUP.md` whenever you need the complete end-to-end environment instructions.
 
 ## 🎯 Usage
 
@@ -140,7 +134,7 @@ yarn preview
 1. **Login**: Use credentials `admin/admin` (click "Admin" in top-right corner)
 2. **Dashboard Hub**: Overview of key metrics and quick navigation
 3. **Recent Activity**: Click "Recent Activity" tab to view card-based activity with filters
-4. **Customer Insights**: Click "Customer Insights" tab for detailed feedback analysis
+4. **Customer Insights**: Click "Customer Insights" tab for detailed feedback analysis sourced from MongoDB
 5. **Monitor**: Track user feedback and generation history across dedicated pages
 
 ## 🌟 Recent Features

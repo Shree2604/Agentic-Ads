@@ -5,7 +5,7 @@ import { AdminPage } from '@/pages/AdminPage/AdminPage';
 import { AdminLogin } from '@/components/AdminLogin/AdminLogin';
 import { FeedbackModal } from '@/components/FeedbackModal/FeedbackModal';
 import { useAppState } from '@/hooks/useAppState';
-import { useDataState } from '@/hooks/useDataState';
+import { useApiData } from '@/hooks/useApiData';
 import { useAdGeneration } from '@/hooks/useAdGeneration';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useFeedbackHandler } from '@/hooks/useFeedbackHandler';
@@ -13,18 +13,26 @@ import './App.css';
 
 const App: React.FC = () => {
   const appState = useAppState();
-  const dataState = useDataState();
-  const adGeneration = useAdGeneration(appState, dataState);
+  const apiData = useApiData(appState.adminToken);
+  const adGeneration = useAdGeneration(appState, apiData);
   const adminAuth = useAdminAuth(appState);
-  const feedbackHandler = useFeedbackHandler(appState, dataState);
+  const feedbackHandler = useFeedbackHandler(appState, apiData);
 
   const renderCurrentView = () => {
     // If user is authenticated as admin, go to admin page
     if (appState.isAdminAuthenticated) {
+      if (apiData.loading) {
+        return <div className="admin-loading">Loading admin data...</div>;
+      }
+
+      if (apiData.error) {
+        return <div className="admin-error">{apiData.error}</div>;
+      }
+
       return (
         <AdminPage
-          generationHistory={dataState.generationHistory}
-          feedbackList={dataState.feedbackList}
+          generationHistory={apiData.generationHistory}
+          feedbackList={apiData.feedbackList}
           onLogout={adminAuth.handleAdminLogout}
         />
       );
@@ -57,8 +65,8 @@ const App: React.FC = () => {
       case 'admin':
         return (
           <AdminPage
-            generationHistory={dataState.generationHistory}
-            feedbackList={dataState.feedbackList}
+            generationHistory={apiData.generationHistory}
+            feedbackList={apiData.feedbackList}
             onLogout={adminAuth.handleAdminLogout}
           />
         );

@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
 import { useAppState } from './useAppState';
-import { useDataState } from './useDataState';
+import { useApiData } from './useApiData';
 
-export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, dataState: ReturnType<typeof useDataState>) => {
+export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, apiData: ReturnType<typeof useApiData>) => {
   const handleActionClick = useCallback((type: string) => {
     appState.setFeedbackType(type as any);
     appState.setShowFeedbackModal(true);
   }, [appState]);
 
-  const submitFeedback = useCallback(() => {
+  const submitFeedback = useCallback(async () => {
     if (!appState.feedback.email || !appState.feedback.message) {
       alert('Please fill in all fields');
       return;
@@ -21,7 +21,7 @@ export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, dat
     };
 
     const newFeedback = {
-      id: dataState.feedbackList.length + 1,
+      id: 0, // Will be set by backend
       email: appState.feedback.email,
       message: appState.feedback.message,
       rating: appState.feedback.rating,
@@ -30,7 +30,14 @@ export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, dat
       platform: appState.formData.platform
     };
 
-    dataState.setFeedbackList([newFeedback, ...dataState.feedbackList]);
+    if (appState.adminToken) {
+      try {
+        await apiData.addFeedback(newFeedback);
+      } catch (error) {
+        console.error('Failed to save feedback:', error);
+        alert('Unable to record feedback. Please try again.');
+      }
+    }
 
     // Handle the actual action
     if (appState.feedbackType === 'copy' && appState.result) {
@@ -42,7 +49,7 @@ export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, dat
 
     appState.setShowFeedbackModal(false);
     appState.setFeedback({ email: '', message: '', rating: 5 });
-  }, [appState, dataState]);
+  }, [appState, apiData]);
 
   return { handleActionClick, submitFeedback };
 };

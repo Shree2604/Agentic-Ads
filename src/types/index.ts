@@ -54,4 +54,4 @@ export interface OutputType {
 export type ViewType = 'welcome' | 'app' | 'admin';
 export type FeedbackType = 'copy' | 'download-poster' | 'download-video' | null;
 export type Tone = 'professional' | 'casual' | 'energetic' | 'fun' | 'witty';
-export type Platform = 'Instagram' | 'LinkedIn' | 'TikTok' | 'Facebook' | 'Twitter';
+export type Platform = 'Instagram' | 'LinkedIn' | 'Twitter' | 'YouTube';
