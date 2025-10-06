@@ -93,18 +93,20 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
             <div key={item.id} className="activity-card">
               <div className="activity-card-header">
                 <div className="activity-card-title">
-                  <h3>Generation #{item.id}</h3>
+                  <h3>Generation {item.id}</h3>
                   <span className={`status-badge ${item.status.toLowerCase()}`}>
                     {item.status}
                   </span>
                 </div>
-                <div className="activity-card-time">
-                  <Clock size={14} />
-                  <span>{item.date} {item.time}</span>
-                </div>
               </div>
 
+
+
               <div className="activity-card-content">
+                <div className='activity-card-row'>
+                  <span className="activity-card-label">Date & Time:</span>
+                  <span className="outputs-count">{item.date} {item.time}</span>
+                </div>
                 <div className="activity-card-row">
                   <span className="activity-card-label">Platform:</span>
                   <span className="platform-badge">{item.platform}</span>
@@ -116,15 +118,6 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
                 <div className="activity-card-row">
                   <span className="activity-card-label">Outputs:</span>
                   <span className="outputs-count">{item.outputs}</span>
-                </div>
-                <div className="activity-card-row">
-                  <span className="activity-card-label">Performance:</span>
-                  <div className="performance-indicator">
-                    <div className="performance-bar">
-                      <div className="performance-fill" style={{ width: `${75 + (item.id % 20)}%` }}></div>
-                    </div>
-                    <span className="performance-score">{75 + (item.id % 20)}%</span>
-                  </div>
                 </div>
               </div>
             </div>
