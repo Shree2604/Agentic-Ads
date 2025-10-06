@@ -125,7 +125,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
               </div>
               <h3>Platform Perfect</h3>
               <br />
-              <p>Graph RAG ensures every ad meets platform-specific requirements.</p>
+              <p>Agentic RAG ensures every ad meets platform-specific requirements.</p>
             </div>
           </div>
         </div>
