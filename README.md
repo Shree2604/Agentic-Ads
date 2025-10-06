@@ -96,7 +96,7 @@ This project follows **SOLID principles**:
    ```
 
 4. **Open your browser**
-   Navigate to `http://localhost:5173` to view the application
+   Navigate to `http://localhost:3000` to view the application
 
 ### Building for Production
 

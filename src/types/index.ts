@@ -4,6 +4,7 @@ export interface FormData {
   platform: string;
   outputs: string[];
   logoPosition: string;
+  logo?: File;
 }
 
 export interface GenerationResult {

@@ -147,11 +147,59 @@
   font-family: inherit;
 }
 
-.form-group textarea:focus,
-.form-group select:focus {
+.form-group input[type="file"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-group input[type="file"]:hover {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.02);
+}
+
+.form-group input[type="file"]:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-group input[type="file"]::-webkit-file-upload-button {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.form-group input[type="file"]::-webkit-file-upload-button:hover {
+  background: var(--primary-dark);
+}
+
+.form-group input[type="file"]::-moz-file-upload-button {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.form-group input[type="file"]::-moz-file-upload-button:hover {
+  background: var(--primary-dark);
 }
 
 .form-row {

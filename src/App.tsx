@@ -19,6 +19,17 @@ const App: React.FC = () => {
   const feedbackHandler = useFeedbackHandler(appState, dataState);
 
   const renderCurrentView = () => {
+    // If user is authenticated as admin, go to admin page
+    if (appState.isAdminAuthenticated) {
+      return (
+        <AdminPage
+          generationHistory={dataState.generationHistory}
+          feedbackList={dataState.feedbackList}
+          onLogout={adminAuth.handleAdminLogout}
+        />
+      );
+    }
+
     switch (appState.currentView) {
       case 'welcome':
         return (

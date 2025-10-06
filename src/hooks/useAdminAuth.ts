@@ -16,6 +16,8 @@ export const useAdminAuth = (appState: ReturnType<typeof useAppState>) => {
   const handleAdminLogout = useCallback(() => {
     appState.setIsAdminAuthenticated(false);
     appState.setCurrentView('welcome');
+    localStorage.removeItem('isAdminAuthenticated');
+    localStorage.removeItem('currentView');
   }, [appState]);
 
   return { handleAdminLogin, handleAdminLogout };

@@ -75,6 +75,10 @@ p {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-size: 4rem;
+  white-space: nowrap;
+  text-align: center;
+  margin-left: -55px;
 }
 
 .spinner {

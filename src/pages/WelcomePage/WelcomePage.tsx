@@ -53,8 +53,9 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
             <span>100% Free • Open Source • No Credit Card</span>
           </div>
           <h1 className="hero-title">
-            Transform Your Ideas Into
-            <span className="gradient-text"> Platform-Perfect Multi-Model Ads</span>
+            Transform Your Ideas Into Platform Specific
+            <br />
+            <span className="gradient-text"> Multi-Model Advertisements</span>
           </h1>
           <div className="hero-cta">
             <Button variant="hero" onClick={onGetStartedClick}>
@@ -83,20 +84,23 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 <Type size={24} />
               </div>
               <h3>Smart Copywriting</h3>
-              <p>AI-powered text rewriting optimized for each platform's audience and style guidelines.</p>
+              <br />
+              <p>AI-powered text rewriting optimized for each platform's audiences style guidelines.</p>
             </div>
             <div className="feature-card">
               <div className="feature-icon">
                 <Image size={24} />
               </div>
               <h3>Stunning Posters</h3>
-              <p>Generate eye-catching visuals with automatic brand integration and platform-specific sizing.</p>
+              <br />
+              <p>Generate eye-catching visuals with brand integration and platform-specific sizing.</p>
             </div>
             <div className="feature-card">
               <div className="feature-icon">
                 <Video size={24} />
               </div>
               <h3>Engaging Videos</h3>
+              <br />
               <p>Create professional video reels in seconds with your logo seamlessly integrated.</p>
             </div>
             <div className="feature-card">
@@ -104,6 +108,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 <Sparkles size={24} />
               </div>
               <h3>Brand Consistency</h3>
+              <br />
               <p>Automatic logo overlay and brand color integration across all generated assets.</p>
             </div>
             <div className="feature-card">
@@ -111,14 +116,16 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 <Zap size={24} />
               </div>
               <h3>Lightning Fast</h3>
-              <p>Generate complete ad campaigns in under 60 seconds with our multi-agent system.</p>
+              <br />
+              <p>Generate complete ad campaigns in under 180 seconds with our multi-agent system.</p>
             </div>
             <div className="feature-card">
               <div className="feature-icon">
                 <Check size={24} />
               </div>
               <h3>Platform Perfect</h3>
-              <p>Graph RAG ensures every ad meets platform-specific requirements automatically.</p>
+              <br />
+              <p>Graph RAG ensures every ad meets platform-specific requirements.</p>
             </div>
           </div>
         </div>
@@ -162,16 +169,16 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 <h3>Shreeraj Mummidivarapu</h3>
                 <p className="developer-title">Full Stack AI Developer</p>
                 <div className="developer-links">
-                  <a href="https://github.com/shreeraj" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
+                  <a href="https://github.com/Shree2604" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
                     <Github size={20} />
                   </a>
-                  <a href="https://linkedin.com/in/shreeraj" target="_blank" rel="noopener noreferrer" className="social-link" title="LinkedIn">
+                  <a href="https://www.linkedin.com/in/m-shreeraj/" target="_blank" rel="noopener noreferrer" className="social-link" title="LinkedIn">
                     <Linkedin size={20} />
                   </a>
                   <a href="mailto:shree.xai.dev@gmail.com" className="social-link" title="Email">
                     <Mail size={20} />
                   </a>
-                  <a href="https://shreeraj.dev" target="_blank" rel="noopener noreferrer" className="social-link" title="Portfolio">
+                  <a href="https://shree-portfolio-ten.vercel.app/" target="_blank" rel="noopener noreferrer" className="social-link" title="Portfolio">
                     <Globe size={20} />
                   </a>
                 </div>

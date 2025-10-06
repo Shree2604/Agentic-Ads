@@ -73,7 +73,16 @@ export const AppPage: React.FC<AppPageProps> = ({
                   placeholder="Enter your ad text here..."
                   value={formData.adText}
                   onChange={(e) => setFormData({...formData, adText: e.target.value})}
-                  rows={12}
+                  rows={5}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Your Logo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setFormData({...formData, logo: e.target.files?.[0]})}
                 />
               </div>
 
