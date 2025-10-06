@@ -192,7 +192,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 </div>
               </div>
               <div className="developer-info">
-                <h3>Sonohar B</h3>
+                <h3>Sonohar Boggavarapu</h3>
                 <p className="developer-title">Frontend Developer</p>
                 <div className="developer-links">
                   <a href="https://github.com/sonohar" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
@@ -215,7 +215,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 </div>
               </div>
               <div className="developer-info">
-                <h3>Abhinash T</h3>
+                <h3>Abhinash Talla</h3>
                 <p className="developer-title">Backend Developer</p>
                 <div className="developer-links">
                   <a href="https://github.com/abhinash" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
