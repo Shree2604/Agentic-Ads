@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, ArrowLeft, Clock } from 'lucide-react';
+import { Calendar, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { GenerationHistory } from '@/types';
 import './ActivityPage.css';
