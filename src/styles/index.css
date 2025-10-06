@@ -75,10 +75,25 @@ p {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  font-size: 4rem;
-  white-space: nowrap;
-  text-align: center;
-  margin-left: -55px;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  display: inline-block;
+}
+
+
+/* Mobile specific adjustments */
+@media (max-width: 767px) {
+  .gradient-text {
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .gradient-text {
+    font-size: clamp(2.25rem, 5vw, 3rem);
+  }
 }
 
 .spinner {
