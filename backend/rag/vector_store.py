@@ -6,6 +6,7 @@ Handles ChromaDB operations for knowledge storage and retrieval
 import os
 import json
 import asyncio
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import chromadb
@@ -16,35 +17,149 @@ from .config import RAGConfig
 
 class VectorStoreManager:
     """Manages vector database operations for RAG system"""
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, config: Optional[RAGConfig] = None):
+        if cls._instance is None:
+            cls._instance = super(VectorStoreManager, cls).__new__(cls)
+            cls._instance.config = config or RAGConfig()
+            cls._instance.client = None
+            cls._instance.collection = None
+            cls._instance.embedding_model = None
+            cls._instance._collection_id = None
+            cls._instance._is_temp_db = False
+        return cls._instance
 
     def __init__(self, config: Optional[RAGConfig] = None):
-        self.config = config or RAGConfig()
-        self.client = None
-        self.collection = None
-        self.embedding_model = None
-        self._initialize()
+        if not self._initialized:
+            self._initialize()
+            self._initialized = True
+
+    def __del__(self):
+        """Cleanup resources when the instance is destroyed"""
+        self.cleanup()
+
+    def cleanup(self):
+        """Clean up resources and connections"""
+        try:
+            if self.client:
+                # Reset the client's connection
+                self.client.reset()
+                self.client = None
+            if self.collection:
+                self.collection = None
+            if self._is_temp_db and os.path.exists(self.config.vector_store_path):
+                import shutil
+                try:
+                    shutil.rmtree(self.config.vector_store_path)
+                except:
+                    pass
+        except Exception as e:
+            print(f"Warning during cleanup: {str(e)}")
 
     def _initialize(self):
         """Initialize the vector store and embedding model"""
-        try:
-            # Initialize ChromaDB client
-            self.client = chromadb.PersistentClient(
-                path=self.config.vector_store_path,
-                settings=Settings(anonymized_telemetry=False)
+        import tempfile
+        import time
+        from pathlib import Path
+
+        def try_initialize_client(db_path):
+            Path(db_path).mkdir(parents=True, exist_ok=True)
+            return chromadb.PersistentClient(
+                path=db_path,
+                settings=Settings(
+                    anonymized_telemetry=False,
+                    allow_reset=True,
+                    is_persistent=True
+                )
             )
+
+        try:
+            print("🔧 Initializing vector store...")
+            
+            # Try to use the default path first
+            try:
+                # Clean up any existing client
+                if self.client:
+                    self.cleanup()
+
+                # Try to initialize with the default path
+                self.client = try_initialize_client(self.config.vector_store_path)
+                self._is_temp_db = False
+            except Exception as e:
+                if "process cannot access the file" in str(e):
+                    print("⚠️ Main database is locked, using temporary database...")
+                    # Create a temporary directory for ChromaDB
+                    temp_dir = tempfile.mkdtemp(prefix="chromadb_temp_")
+                    self.config.vector_store_path = temp_dir
+                    self.client = try_initialize_client(temp_dir)
+                    self._is_temp_db = True
+                else:
+                    raise
+            
+            # Initialize the collection
+            try:
+                self.collection = self.client.get_or_create_collection(
+                    name=self.config.collection_name,
+                    metadata={"description": "AgenticAds knowledge base"}
+                )
+            except Exception as e:
+                print(f"⚠️ Error creating collection: {str(e)}")
+                # Try to get existing collection
+                self.collection = self.client.get_collection(self.config.collection_name)
 
             # Initialize embedding model
+            print("🔧 Loading embedding model...")
             self.embedding_model = SentenceTransformer(self.config.embedding_model)
 
-            # Get or create collection
-            self.collection = self.client.get_or_create_collection(
-                name=self.config.collection_name,
-                metadata={"description": "AgenticAds knowledge base for ad generation"}
-            )
+            # Create or get collection
+            print(f"🔧 Setting up collection: {self.config.collection_name}")
+            try:
+                # Try to get existing collection
+                self.collection = self.client.get_collection(name=self.config.collection_name)
+                print("Found existing collection")
+            except:
+                # Create new collection if it doesn't exist
+                self.collection = self.client.create_collection(
+                    name=self.config.collection_name,
+                    metadata={
+                        "description": "AgenticAds knowledge base for ad generation",
+                        "created_at": datetime.utcnow().isoformat()
+                    }
+                )
+                print("Created new collection")
+            
+            # Store the collection ID
+            self._collection_id = self.collection.id
+            print(f"✅ Vector store initialized with collection ID: {self._collection_id}")
+            if self._is_temp_db:
+                print("⚠️ Using temporary database - data will not persist!")
 
         except Exception as e:
-            print(f"Error initializing vector store: {e}")
+            print(f"❌ Error initializing vector store: {str(e)}")
+            # Try cleanup on error
+            self.cleanup()
             raise
+
+    def _flatten_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Flatten nested metadata and convert to ChromaDB compatible format"""
+        flattened = {}
+        for key, value in metadata.items():
+            if isinstance(value, (str, int, float, bool)):
+                flattened[key] = value
+            elif isinstance(value, dict):
+                # Convert nested dict to string
+                flattened[key] = json.dumps(value)
+            elif isinstance(value, (list, tuple)):
+                # Convert lists to string
+                flattened[key] = json.dumps(value)
+            elif value is None:
+                flattened[key] = ""
+            else:
+                # Convert other types to string
+                flattened[key] = str(value)
+        return flattened
 
     def add_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """
@@ -53,11 +168,49 @@ class VectorStoreManager:
         Args:
             documents: List of documents with 'content', 'metadata', and optional 'id'
         """
+        if not documents:
+            return True
+
         try:
-            # Extract content and metadata
-            contents = [doc["content"] for doc in documents]
-            metadatas = [doc.get("metadata", {}) for doc in documents]
-            ids = [doc.get("id", f"doc_{i}") for i, doc in enumerate(documents)]
+            # Process documents in smaller batches
+            batch_size = 50
+            success = True
+
+            for i in range(0, len(documents), batch_size):
+                batch = documents[i:i + batch_size]
+                
+                # Extract content and metadata for batch
+                contents = [str(doc["content"]) for doc in batch]
+                metadatas = [self._flatten_metadata(doc.get("metadata", {})) for doc in batch]
+                ids = [str(doc.get("id", f"doc_{j}")) for j, doc in enumerate(batch, start=i)]
+
+                # Generate embeddings
+                embeddings = self.embedding_model.encode(contents).tolist()
+
+                # Add documents with retry logic
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        self.collection.add(
+                            documents=contents,
+                            embeddings=embeddings,
+                            metadatas=metadatas,
+                            ids=ids
+                        )
+                        print(f"✅ Added batch {i//batch_size + 1} ({len(batch)} documents)")
+                        break
+                    except Exception as e:
+                        if "Collection does not exist" in str(e):
+                            print("Collection lost, reinitializing...")
+                            self._initialize()
+                            continue
+                        if attempt == max_retries - 1:
+                            print(f"❌ Failed to add batch after {max_retries} attempts")
+                            success = False
+                            break
+                        print(f"Retrying batch {i//batch_size + 1}... ({attempt + 1}/{max_retries})")
+
+            return success
 
             # Generate embeddings
             embeddings = self.embedding_model.encode(contents).tolist()

@@ -76,6 +76,7 @@ class KnowledgeBaseManager:
             "template_type": "text"
         }
 
+        now = datetime.utcnow()
         return KnowledgeDocument(
             id=doc_id,
             content=content,
@@ -85,7 +86,9 @@ class KnowledgeBaseManager:
             platform=platform,
             tone=tone,
             category=category,
-            tags=tags or []
+            tags=tags or [],
+            created_at=now,
+            updated_at=now
         )
 
     def create_brand_guideline(self, content: str, brand_name: str,
@@ -100,6 +103,7 @@ class KnowledgeBaseManager:
             "word_count": len(content.split())
         }
 
+        now = datetime.utcnow()
         return KnowledgeDocument(
             id=doc_id,
             content=content,
@@ -107,7 +111,9 @@ class KnowledgeBaseManager:
             source="brand_guidelines",
             content_type="guideline",
             category=guideline_type,
-            tags=tags or [brand_name, guideline_type]
+            tags=tags or [brand_name, guideline_type],
+            created_at=now,
+            updated_at=now
         )
 
     def create_successful_example(self, content: str, platform: str, tone: str,
@@ -116,15 +122,20 @@ class KnowledgeBaseManager:
         """Create a successful ad example document"""
         doc_id = f"example_{platform}_{tone}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
+        # Flatten performance metrics into top-level metadata
+        metrics = performance_metrics or {}
         metadata = {
             "platform": platform,
             "tone": tone,
-            "performance_metrics": performance_metrics or {},
             "char_length": len(content),
             "word_count": len(content.split()),
-            "success_indicators": performance_metrics.get("engagement_rate", 0) if performance_metrics else 0
+            "engagement_rate": metrics.get("engagement_rate", 0),
+            "click_through_rate": metrics.get("click_through_rate", 0),
+            "conversions": metrics.get("conversions", 0),
+            "performance_score": sum(metrics.values()) if metrics else 0
         }
 
+        now = datetime.utcnow()
         return KnowledgeDocument(
             id=doc_id,
             content=content,
@@ -134,7 +145,9 @@ class KnowledgeBaseManager:
             platform=platform,
             tone=tone,
             category="successful",
-            tags=tags or [platform, tone, "successful"]
+            tags=tags or [platform, tone, "successful"],
+            created_at=now,
+            updated_at=now
         )
 
     def create_user_feedback(self, content: str, platform: str, rating: int,
@@ -151,6 +164,7 @@ class KnowledgeBaseManager:
             "feedback_type": "rating" if rating > 0 else "complaint"
         }
 
+        now = datetime.utcnow()
         return KnowledgeDocument(
             id=doc_id,
             content=content,
@@ -159,7 +173,9 @@ class KnowledgeBaseManager:
             content_type="feedback",
             platform=platform,
             category=f"rating_{rating}",
-            tags=tags or [platform, f"rating_{rating}"]
+            tags=tags or [platform, f"rating_{rating}"],
+            created_at=now,
+            updated_at=now
         )
 
     def add_document(self, document: KnowledgeDocument) -> bool:
@@ -333,6 +349,16 @@ class KnowledgeBaseManager:
         success = self.add_documents(all_documents)
         if success:
             print(f"Successfully seeded knowledge base with {len(all_documents)} documents")
+            
+            # Verify vector store has documents
+            try:
+                if hasattr(self.vector_store, 'collection'):
+                    vector_count = self.vector_store.collection.count()
+                    print(f"✅ Vector store now contains {vector_count} documents")
+                else:
+                    print("⚠️  Vector store doesn't have collection attribute")
+            except Exception as e:
+                print(f"⚠️  Could not verify vector store count: {e}")
         else:
             print("Failed to seed knowledge base")
 
@@ -393,8 +419,19 @@ class KnowledgeBaseManager:
         """Get statistics about the knowledge base"""
         documents = self.load_documents_from_files()
 
+        # Also try to get stats from vector store
+        try:
+            vector_count = self.vector_store.collection.count() if hasattr(self.vector_store, 'collection') else 0
+            if vector_count > len(documents):
+                # Use vector store count if it's higher
+                documents = []  # We'll count from vector store instead
+                # Note: We can't easily get metadata from vector store without querying,
+                # so we'll use file-based stats for now but add the vector count
+        except Exception:
+            vector_count = 0
+
         stats = {
-            "total_documents": len(documents),
+            "total_documents": max(len(documents), vector_count),
             "by_content_type": {},
             "by_platform": {},
             "by_tone": {},

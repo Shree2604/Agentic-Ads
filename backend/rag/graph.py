@@ -17,6 +17,8 @@ from .agents import (
     QualityAssuranceAgent
 )
 
+from .enhanced_vector_store import get_enhanced_vector_store
+
 class GenerationState(TypedDict):
     """State structure for the generation workflow"""
     input: str
@@ -75,17 +77,13 @@ class GenerationGraph:
         workflow.add_node("refinement", self._refinement_node)
         workflow.add_node("error_handler", self._error_handler_node)
 
-        # Define the flow
+        # Define the flow - Sequential instead of parallel to avoid concurrent updates
         workflow.set_entry_point("research")
 
-        # Research -> Parallel generation paths
+        # Research -> Text generation -> Poster generation -> Video generation -> Quality assurance
         workflow.add_edge("research", "text_generation")
-        workflow.add_edge("research", "poster_generation")
-        workflow.add_edge("research", "video_generation")
-
-        # All generation paths converge at quality assurance
-        workflow.add_edge("text_generation", "quality_assurance")
-        workflow.add_edge("poster_generation", "quality_assurance")
+        workflow.add_edge("text_generation", "poster_generation")
+        workflow.add_edge("poster_generation", "video_generation")
         workflow.add_edge("video_generation", "quality_assurance")
 
         # Quality assurance -> refinement (if needed)
@@ -108,24 +106,30 @@ class GenerationGraph:
             }
         )
 
-        # Error handling edges
-        for node in ["research", "text_generation", "poster_generation", "video_generation", "quality_assurance"]:
-            workflow.add_edge(node, "error_handler")
+        # Remove problematic error handling edges that can cause concurrent updates
+        # workflow.add_edge("research", "error_handler")
+        # workflow.add_edge("text_generation", "error_handler")
+        # workflow.add_edge("poster_generation", "error_handler")
+        # workflow.add_edge("video_generation", "error_handler")
+        # workflow.add_edge("quality_assurance", "error_handler")
 
         return workflow.compile()
 
     def _research_node(self, state: GenerationState) -> GenerationState:
         """Execute content research"""
         try:
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
             # Create agent context
             context = AgentContext(
                 platform=state["platform"],
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=None,  # Will be initialized in actual implementation
-                llm_model=None,     # Will be initialized in actual implementation
-                embedding_model=None
+                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                embedding_model=embedding_model
             )
 
             researcher = ContentResearcher(context)
@@ -142,14 +146,17 @@ class GenerationGraph:
     def _text_generation_node(self, state: GenerationState) -> GenerationState:
         """Execute text generation"""
         try:
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
             context = AgentContext(
                 platform=state["platform"],
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=None,
-                llm_model=None,
-                embedding_model=None
+                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                embedding_model=embedding_model
             )
 
             copywriter = CopywriterAgent(context)
@@ -166,14 +173,17 @@ class GenerationGraph:
     def _poster_generation_node(self, state: GenerationState) -> GenerationState:
         """Execute poster generation"""
         try:
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
             context = AgentContext(
                 platform=state["platform"],
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=None,
-                llm_model=None,
-                embedding_model=None
+                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                embedding_model=embedding_model
             )
 
             designer = VisualDesignerAgent(context)
@@ -190,14 +200,17 @@ class GenerationGraph:
     def _video_generation_node(self, state: GenerationState) -> GenerationState:
         """Execute video generation"""
         try:
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
             context = AgentContext(
                 platform=state["platform"],
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=None,
-                llm_model=None,
-                embedding_model=None
+                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                embedding_model=embedding_model
             )
 
             scriptwriter = VideoScriptwriterAgent(context)
@@ -214,14 +227,17 @@ class GenerationGraph:
     def _quality_assurance_node(self, state: GenerationState) -> GenerationState:
         """Execute quality assurance"""
         try:
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
             context = AgentContext(
                 platform=state["platform"],
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=None,
-                llm_model=None,
-                embedding_model=None
+                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                embedding_model=embedding_model
             )
 
             qa_agent = QualityAssuranceAgent(context)
@@ -313,13 +329,39 @@ class GenerationGraph:
     async def run(self, initial_state: GenerationState) -> GenerationState:
         """Run the complete generation workflow"""
         try:
-            result = await self.graph.ainvoke(initial_state)
+            # Ensure all required state keys are initialized
+            complete_state = {
+                "input": initial_state.get("input", ""),
+                "platform": initial_state.get("platform", ""),
+                "tone": initial_state.get("tone", ""),
+                "brand_guidelines": initial_state.get("brand_guidelines"),
+                "output_types": initial_state.get("output_types", []),
+                "research_context": initial_state.get("research_context", []),
+                "research_summary": initial_state.get("research_summary", ""),
+                "generated_text": initial_state.get("generated_text", ""),
+                "poster_prompt": initial_state.get("poster_prompt", ""),
+                "video_script": initial_state.get("video_script", ""),
+                "copywriter_notes": initial_state.get("copywriter_notes", ""),
+                "visual_designer_notes": initial_state.get("visual_designer_notes", ""),
+                "video_scriptwriter_notes": initial_state.get("video_scriptwriter_notes", ""),
+                "quality_scores": initial_state.get("quality_scores", {}),
+                "validation_feedback": initial_state.get("validation_feedback", {}),
+                "qa_notes": initial_state.get("qa_notes", ""),
+                "final_text": initial_state.get("final_text", ""),
+                "final_poster_prompt": initial_state.get("final_poster_prompt", ""),
+                "final_video_script": initial_state.get("final_video_script", ""),
+                "errors": initial_state.get("errors", []),
+                "retry_count": initial_state.get("retry_count", 0)
+            }
+
+            result = await self.graph.ainvoke(complete_state)
             return result
         except Exception as e:
             # Return state with error information
             return {
                 **initial_state,
-                "errors": [f"Workflow error: {str(e)}"]
+                "errors": initial_state.get("errors", []) + [f"Workflow error: {str(e)}"],
+                "generated_text": f"Error in generation: {str(e)}"
             }
 
 def create_generation_graph(model_name: str = "microsoft/DialoGPT-medium") -> GenerationGraph:

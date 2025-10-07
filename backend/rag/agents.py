@@ -6,12 +6,9 @@ Multi-agent orchestration for text, poster, and video generation
 import asyncio
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-from langchain_core.language_models.llms import BaseLLM
-from langchain_core.prompts import PromptTemplate
-from langchain_huggingface import HuggingFacePipeline
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import chromadb
 from sentence_transformers import SentenceTransformer
+from .text_generation import get_text_generator
 
 @dataclass
 class AgentContext:
@@ -21,7 +18,6 @@ class AgentContext:
     brand_guidelines: Optional[str]
     input_text: str
     vector_store: Any
-    llm_model: Any
     embedding_model: Any
 
 class BaseAgent:
@@ -30,9 +26,9 @@ class BaseAgent:
     def __init__(self, name: str, context: AgentContext):
         self.name = name
         self.context = context
-        self.llm = context.llm_model
         self.vector_store = context.vector_store
         self.embedding_model = context.embedding_model
+        self.text_generator = get_text_generator()
 
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Execute agent logic - to be implemented by subclasses"""
@@ -41,14 +37,33 @@ class BaseAgent:
     def _retrieve_context(self, query: str, n_results: int = 5) -> List[str]:
         """Retrieve relevant context from vector store"""
         try:
-            results = self.vector_store.query(
-                query_texts=[query],
-                n_results=n_results,
-                where={"platform": self.context.platform, "tone": self.context.tone}
+            if not self.vector_store or not hasattr(self.vector_store, "collection"):
+                print("Vector store not properly initialized")
+                return []
+
+            # Include platform and tone in the query for better semantic matching
+            enhanced_query = f"{query} {self.context.platform} {self.context.tone}"
+
+            # Query without filters (ChromaDB filtering can be unreliable)
+            results = self.vector_store.collection.query(
+                query_texts=[enhanced_query],
+                n_results=n_results
             )
-            return results["documents"][0] if results["documents"] else []
+            
+            # Debug logging
+            print(f"🔍 RAG Query: '{enhanced_query}'")
+            print(f"📊 Results found: {len(results['documents'][0]) if results['documents'] else 0}")
+            
+            if results['documents'] and results['documents'][0]:
+                context = results["documents"][0][:3]  # Take top 3 results
+                print(f"📝 Retrieved context: {len(context)} items")
+                return context
+            else:
+                print("⚠️  No context retrieved from knowledge base")
+                return []
+
         except Exception as e:
-            print(f"Error retrieving context: {e}")
+            print(f"❌ Error retrieving context: {e}")
             return []
 
 class ContentResearcher(BaseAgent):
@@ -91,6 +106,16 @@ class CopywriterAgent(BaseAgent):
 
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Generate platform-optimized text"""
+        output_types = state.get("output_types", [])
+        
+        # Skip text generation if not requested
+        if "text" not in output_types:
+            return {
+                **state,
+                "generated_text": state.get("generated_text", ""),
+                "copywriter_notes": "Text generation skipped - not requested"
+            }
+
         research_context = state.get("research_context", [])
         input_text = state.get("input", self.context.input_text)
 
@@ -133,14 +158,87 @@ class CopywriterAgent(BaseAgent):
                 "copywriter_notes": "Failed to generate copy"
             }
 
-    async def _generate_text(self, prompt: str) -> str:
-        """Generate text using the LLM"""
+    def _generate_text(self, prompt: str) -> str:
+        """Generate text using the Hugging Face model"""
         try:
-            # Use the LLM pipeline to generate text
-            result = self.llm(prompt, max_new_tokens=200, temperature=0.7)
-            return result[0]['generated_text'] if isinstance(result, list) else str(result)
+            # Get relevant examples from the vector store with fallback
+            examples = self._retrieve_context(
+                f"{self.context.platform} {self.context.tone} ad examples",
+                n_results=3
+            )
+            
+            if not examples:
+                # Try a more general query if specific search fails
+                examples = self._retrieve_context(
+                    "successful ad examples",
+                    n_results=2
+                )
+            
+            # Convert examples to proper format, adding basic metadata
+            context_examples = []
+            for example in examples:
+                try:
+                    # Handle both string and dict examples
+                    if isinstance(example, dict):
+                        context_examples.append({
+                            "content": example.get("content", str(example)),
+                            "metadata": example.get("metadata", {})
+                        })
+                    else:
+                        context_examples.append({
+                            "content": str(example),
+                            "metadata": {
+                                "platform": self.context.platform,
+                                "tone": self.context.tone
+                            }
+                        })
+                except Exception as e:
+                    print(f"Error processing example: {e}")
+                    continue
+            
+            # Add fallback example if no valid examples found
+            if not context_examples:
+                context_examples = [{
+                    "content": f"Create an engaging {self.context.tone} post for {self.context.platform}",
+                    "metadata": {
+                        "platform": self.context.platform,
+                        "tone": self.context.tone,
+                        "is_fallback": True
+                    }
+                }]
+            
+            # Generate text using our text generation service
+            generated_text = self.text_generator.generate_ad(
+                context=context_examples,
+                platform=self.context.platform,
+                tone=self.context.tone,
+                input_text=self.context.input_text
+            )
+            
+            if not generated_text or len(generated_text.strip()) < 10:
+                raise ValueError("Generated text too short or empty")
+            
+            return generated_text
+            
         except Exception as e:
-            return f"Generated copy for {self.context.platform}: {self.context.input_text} (powered by AI)"
+            print(f"Error in text generation: {str(e)}")
+            # Provide a more specific fallback based on the error
+            if "403" in str(e) or "Forbidden" in str(e):
+                fallback_text = (
+                    f"🚀 {self.context.input_text}\n\n"
+                    f"#{self.context.platform.lower()} #innovation"
+                )
+            elif "timeout" in str(e).lower():
+                fallback_text = (
+                    f"⚡ Fast-track your success with our cutting-edge solutions!\n\n"
+                    f"#{self.context.platform.lower()} #success"
+                )
+            else:
+                fallback_text = (
+                    f"✨ Transform your experience with our premium offerings!\n\n"
+                    f"#{self.context.platform.lower()} #premium"
+                )
+            return fallback_text
 
 class VisualDesignerAgent(BaseAgent):
     """Creates poster design prompts with brand consistency"""
@@ -150,6 +248,16 @@ class VisualDesignerAgent(BaseAgent):
 
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Generate poster design prompts"""
+        output_types = state.get("output_types", [])
+        
+        # Skip poster generation if not requested
+        if "poster" not in output_types:
+            return {
+                **state,
+                "poster_prompt": state.get("poster_prompt", ""),
+                "visual_designer_notes": "Poster generation skipped - not requested"
+            }
+
         generated_text = state.get("generated_text", "")
 
         # Research visual design patterns
@@ -210,6 +318,16 @@ class VideoScriptwriterAgent(BaseAgent):
 
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Generate video script and scene descriptions"""
+        output_types = state.get("output_types", [])
+        
+        # Skip video generation if not requested
+        if "video" not in output_types:
+            return {
+                **state,
+                "video_script": state.get("video_script", ""),
+                "video_scriptwriter_notes": "Video generation skipped - not requested"
+            }
+
         generated_text = state.get("generated_text", "")
 
         # Research video storytelling patterns
@@ -274,40 +392,48 @@ class QualityAssuranceAgent(BaseAgent):
 
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and score generated content"""
+        output_types = state.get("output_types", [])
+        
         generated_text = state.get("generated_text", "")
         poster_prompt = state.get("poster_prompt", "")
         video_script = state.get("video_script", "")
 
-        # Quality checks
+        # Quality checks - only score requested outputs
         quality_scores = {}
 
-        # Check text quality
-        text_score = self._check_text_quality(generated_text)
-        quality_scores["text"] = text_score
+        # Check text quality if requested
+        if "text" in output_types:
+            text_score = self._check_text_quality(generated_text)
+            quality_scores["text"] = text_score
 
-        # Check poster prompt quality
-        poster_score = self._check_poster_quality(poster_prompt)
-        quality_scores["poster"] = poster_score
+        # Check poster prompt quality if requested
+        if "poster" in output_types:
+            poster_score = self._check_poster_quality(poster_prompt)
+            quality_scores["poster"] = poster_score
 
-        # Check video script quality
-        video_score = self._check_video_quality(video_script)
-        quality_scores["video"] = video_score
+        # Check video script quality if requested
+        if "video" in output_types:
+            video_score = self._check_video_quality(video_script)
+            quality_scores["video"] = video_score
 
         # Overall assessment
-        overall_score = sum(quality_scores.values()) / len(quality_scores)
+        overall_score = sum(quality_scores.values()) / len(quality_scores) if quality_scores else 5.0
 
-        validation_feedback = {
-            "text_feedback": self._generate_text_feedback(text_score),
-            "poster_feedback": self._generate_poster_feedback(poster_score),
-            "video_feedback": self._generate_video_feedback(video_score),
-            "overall_assessment": "PASS" if overall_score >= 7 else "NEEDS_IMPROVEMENT"
-        }
+        validation_feedback = {}
+        if "text" in output_types:
+            validation_feedback["text_feedback"] = self._generate_text_feedback(quality_scores.get("text", 5.0))
+        if "poster" in output_types:
+            validation_feedback["poster_feedback"] = self._generate_poster_feedback(quality_scores.get("poster", 5.0))
+        if "video" in output_types:
+            validation_feedback["video_feedback"] = self._generate_video_feedback(quality_scores.get("video", 5.0))
+        
+        validation_feedback["overall_assessment"] = "PASS" if overall_score >= 7 else "NEEDS_IMPROVEMENT"
 
         return {
             **state,
             "quality_scores": quality_scores,
             "validation_feedback": validation_feedback,
-            "qa_notes": f"Overall quality score: {overall_score:.1f}/10"
+            "qa_notes": f"Overall quality score: {overall_score:.1f}/10 for requested outputs: {', '.join(output_types)}"
         }
 
     def _check_text_quality(self, text: str) -> float:
@@ -409,7 +535,12 @@ class QualityAssuranceAgent(BaseAgent):
     async def _generate_text(self, prompt: str) -> str:
         """Generate text using the LLM"""
         try:
-            result = self.llm(prompt, max_new_tokens=150, temperature=0.5)
-            return result[0]['generated_text'] if isinstance(result, list) else str(result)
+            # Use the text generator service instead of undefined llm attribute
+            return self.text_generator.generate_ad(
+                context=[{"content": prompt, "metadata": {"platform": self.context.platform, "tone": self.context.tone}}],
+                platform=self.context.platform,
+                tone=self.context.tone,
+                input_text=prompt
+            )
         except Exception as e:
             return f"Error in generation: {str(e)}"

@@ -9,7 +9,7 @@ from .config import RAGConfig
 from .vector_store import VectorStoreManager, get_vector_store
 from .enhanced_vector_store import EnhancedVectorStore, get_enhanced_vector_store
 from .knowledge_base import KnowledgeBaseManager, get_knowledge_manager, KnowledgeDocument
-from .chunking import TextChunker, AdaptiveChunker, Chunk
+from .chunking import TextChunker, AdaptiveChunker, Chunk, create_chunks_for_documents
 
 __version__ = "1.0.0"
 __all__ = [
@@ -30,5 +30,6 @@ __all__ = [
     "KnowledgeDocument",
     "TextChunker",
     "AdaptiveChunker",
-    "Chunk"
+    "Chunk",
+    "create_chunks_for_documents"
 ]

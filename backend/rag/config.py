@@ -15,12 +15,12 @@ class RAGConfig:
     """Configuration for the RAG system"""
 
     # Model configurations
-    text_model: str = "microsoft/DialoGPT-medium"
+    text_model: str = "gpt2"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     image_model: str = "CompVis/stable-diffusion-v1-4"
 
     # Vector store configuration
-    vector_store_path: str = "./chroma_db"
+    vector_store_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "chroma_db")
     collection_name: str = "agentic_ads_knowledge"
 
     # Agent parameters
@@ -64,7 +64,7 @@ class RAGConfig:
     def from_env(cls) -> 'RAGConfig':
         """Create config from environment variables"""
         return cls(
-            text_model=os.getenv("RAG_TEXT_MODEL", "microsoft/DialoGPT-medium"),
+            text_model=os.getenv("RAG_TEXT_MODEL", "gpt2"),
             embedding_model=os.getenv("RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
             image_model=os.getenv("RAG_IMAGE_MODEL", "CompVis/stable-diffusion-v1-4"),
             vector_store_path=os.getenv("VECTOR_STORE_PATH", "./chroma_db"),

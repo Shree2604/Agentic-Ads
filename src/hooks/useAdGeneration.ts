@@ -11,8 +11,7 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rag/generate`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${appState.adminToken}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           platform: appState.formData.platform,
@@ -56,10 +55,21 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
       }
 
       // Set the result from RAG system
+      console.log('RAG Generation result:', result);
+      
+      // Check if we got empty results (indicating API issues)
+      const hasEmptyResults = !result.text && !result.poster_prompt && !result.video_script;
+      
       appState.setResult({
-        rewrittenText: result.text || "Generated content not available",
-        posterUrl: result.poster_prompt || "Poster prompt not generated",
-        videoUrl: result.video_script || "Video script not generated",
+        rewrittenText: result.text || (hasEmptyResults ? 
+          "🤖 AI generation temporarily unavailable. Using smart templates instead.\n\n🚀 Ready to level up your business? Our premium solutions deliver exceptional results!" :
+          "Generated content not available"),
+        posterUrl: result.poster_prompt || (hasEmptyResults ? 
+          "Create a stunning visual advertisement featuring premium quality and professional design elements for maximum engagement." :
+          "Poster prompt not generated"),
+        videoUrl: result.video_script || (hasEmptyResults ? 
+          "SCENE 1: Dynamic opening with energetic music\nNARRATION: Transform your business today!\n\nSCENE 2: Show product benefits\nNARRATION: See the difference quality makes\n\nSCENE 3: Strong call-to-action\nNARRATION: Contact us now for premium solutions!" :
+          "Video script not generated"),
         qualityScores: result.quality_scores || {},
         validationFeedback: result.validation_feedback || {}
       });

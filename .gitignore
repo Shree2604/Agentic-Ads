@@ -115,3 +115,14 @@ pnpm-debug.log*
 # Production builds
 dist/
 build/
+
+# RAG System files
+backend/knowledge_base/**/*.json
+backend/knowledge_base/
+backend/chroma_db/
+backend/data/chroma_db/
+*.sqlite3
+*.sqlite3-journal
+
+# Temporary ChromaDB files
+chromadb_temp_*/

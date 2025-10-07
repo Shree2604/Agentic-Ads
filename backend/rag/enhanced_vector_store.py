@@ -9,17 +9,20 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 from .config import RAGConfig
-from .vector_store import VectorStoreManager    
+from .vector_store import VectorStoreManager, get_vector_store    
 from .knowledge_base import KnowledgeBaseManager, get_knowledge_manager
 from .chunking import AdaptiveChunker, Chunk, create_chunks_for_documents
 
-class EnhancedVectorStore(VectorStoreManager):
+class EnhancedVectorStore:
     """Enhanced vector store with knowledge base integration"""
 
     def __init__(self, config: Optional[RAGConfig] = None):
-        super().__init__(config)
+        # Use the same vector store instance as the knowledge manager
+        self.vector_store = get_vector_store(config)
+        self.config = config or RAGConfig()
         self.knowledge_manager = get_knowledge_manager(config)
         self.chunker = AdaptiveChunker()
+        self.embedding_model = self.vector_store.embedding_model
 
     def add_knowledge_documents(self, documents: List[Dict[str, Any]]) -> bool:
         """Add knowledge documents with chunking"""
@@ -28,7 +31,7 @@ class EnhancedVectorStore(VectorStoreManager):
             chunked_docs = create_chunks_for_documents(documents)
 
             # Add chunks to vector store
-            return self.add_documents(chunked_docs)
+            return self.vector_store.add_documents(chunked_docs)
 
         except Exception as e:
             print(f"Error adding knowledge documents: {e}")
@@ -53,7 +56,7 @@ class EnhancedVectorStore(VectorStoreManager):
                 where_clause["content_type"] = content_type
 
             # Query vector store
-            results = self.collection.query(
+            results = self.vector_store.collection.query(
                 query_embeddings=query_embedding,
                 n_results=n_results * 2,  # Get more results for reranking
                 where=where_clause if where_clause else None
@@ -65,7 +68,8 @@ class EnhancedVectorStore(VectorStoreManager):
             # Rerank results based on relevance and diversity
             reranked_results = self._rerank_results(query, results, n_results)
 
-            return reranked_results
+            if not reranked_results:
+                return []
 
         except Exception as e:
             print(f"Error retrieving context: {e}")
@@ -170,17 +174,32 @@ class EnhancedVectorStore(VectorStoreManager):
 
     def seed_comprehensive_knowledge(self) -> bool:
         """Seed comprehensive knowledge base"""
+        try:
+            print("🌱 Starting to seed knowledge base...")
+            success = self.knowledge_manager.seed_initial_knowledge_base()
 
-        # Seed basic knowledge
-        success = self.knowledge_manager.seed_initial_knowledge_base()
+            if success:
+                print("✅ Comprehensive knowledge base seeded successfully")
+                stats = self.knowledge_manager.get_knowledge_stats()
+                print(f"📊 Knowledge base stats: {stats}")
+                
+                # Verify documents are in vector store
+                try:
+                    count = self.vector_store.collection.count()
+                    print(f"📚 Vector store contains {count} documents")
+                except Exception as e:
+                    print(f"⚠️  Could not verify vector store count: {e}")
+            else:
+                print("❌ Failed to seed knowledge base")
 
-        if success:
-            print("✅ Comprehensive knowledge base seeded successfully")
-            print(f"📊 Knowledge base stats: {self.knowledge_manager.get_knowledge_stats()}")
-        else:
-            print("❌ Failed to seed knowledge base")
+            return success
+        except Exception as e:
+            print(f"❌ Error seeding knowledge base: {str(e)}")
+            raise
 
-        return success
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the vector store"""
+        return self.vector_store.get_stats()
 
     def get_analytics_data(self) -> Dict[str, Any]:
         """Get analytics data for monitoring"""
