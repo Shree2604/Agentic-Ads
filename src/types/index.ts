@@ -5,12 +5,15 @@ export interface FormData {
   outputs: string[];
   logoPosition: string;
   logo?: File;
+  brandGuidelines?: string;
 }
 
 export interface GenerationResult {
   rewrittenText: string;
   posterUrl: string;
   videoUrl: string;
+  qualityScores?: Record<string, number>;
+  validationFeedback?: Record<string, string>;
 }
 
 export interface Feedback {

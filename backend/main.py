@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorClient
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 from datetime import datetime, timedelta
 import os
 import secrets
@@ -41,6 +41,19 @@ ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
+
+# Import RAG system
+try:
+    from rag import (
+        RAGConfig,
+        get_enhanced_vector_store,
+        get_knowledge_manager,
+        run_generation_workflow
+    )
+    RAG_AVAILABLE = True
+except ImportError as e:
+    print(f"RAG system not available: {e}")
+    RAG_AVAILABLE = False
 
 # Pydantic models
 class GenerationHistory(BaseModel):
@@ -80,6 +93,25 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class RAGGenerationRequest(BaseModel):
+    platform: str
+    tone: str
+    ad_text: str
+    outputs: List[str]
+    brand_guidelines: Optional[str] = None
+
+class RAGGenerationResponse(BaseModel):
+    text: str
+    poster_prompt: str
+    video_script: str
+    quality_scores: Dict[str, float]
+    validation_feedback: Dict[str, str]
+    errors: List[str]
+
+class KnowledgeIngestionRequest(BaseModel):
+    source: str = "manual"
+    content_type: str = "general"
+
 # Auth helpers
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -106,13 +138,12 @@ def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(securi
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str | None = payload.get("sub")
+        username: Optional[str] = payload.get("sub")
         if username is None or username != ADMIN_USERNAME:
             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
         return username
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-
 
 # API Routes
 @app.get("/")
@@ -223,11 +254,101 @@ async def get_chart_data(_: str = Depends(get_current_admin)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# RAG System Endpoints
+if RAG_AVAILABLE:
+    @app.post("/api/rag/generate", response_model=RAGGenerationResponse)
+    async def generate_rag_content(request: RAGGenerationRequest, _: str = Depends(get_current_admin)):
+        """Generate content using agentic RAG system"""
+        try:
+            # Initialize RAG system
+            vector_store = get_enhanced_vector_store()
+
+            # Seed knowledge base if empty
+            if vector_store.collection.count() == 0:
+                vector_store.seed_comprehensive_knowledge()
+
+            # Run generation workflow
+            result = await run_generation_workflow(
+                input_text=request.ad_text,
+                platform=request.platform,
+                tone=request.tone,
+                output_types=request.outputs,
+                brand_guidelines=request.brand_guidelines
+            )
+
+            return RAGGenerationResponse(
+                text=result.get("text", ""),
+                poster_prompt=result.get("poster_prompt", ""),
+                video_script=result.get("video_script", ""),
+                quality_scores=result.get("quality_scores", {}),
+                validation_feedback=result.get("validation_feedback", {}),
+                errors=result.get("errors", [])
+            )
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"RAG generation error: {str(e)}")
+
+    @app.post("/api/rag/ingest-historical")
+    async def ingest_historical_data(_: str = Depends(get_current_admin)):
+        """Ingest historical data into knowledge base"""
+        try:
+            vector_store = get_enhanced_vector_store()
+            ingested_count = vector_store.ingest_historical_data(MONGODB_URL, "agentic_ads")
+
+            return {
+                "message": f"Successfully ingested {ingested_count} documents from historical data",
+                "ingested_count": ingested_count
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Ingestion error: {str(e)}")
+
+    @app.post("/api/rag/seed-knowledge")
+    async def seed_knowledge_base(_: str = Depends(get_current_admin)):
+        """Seed the knowledge base with initial templates and guidelines"""
+        try:
+            vector_store = get_enhanced_vector_store()
+            success = vector_store.seed_comprehensive_knowledge()
+
+            if success:
+                return {"message": "Knowledge base seeded successfully"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to seed knowledge base")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Seeding error: {str(e)}")
+
+    @app.get("/api/rag/analytics")
+    async def get_rag_analytics(_: str = Depends(get_current_admin)):
+        """Get RAG system analytics"""
+        try:
+            vector_store = get_enhanced_vector_store()
+            analytics = vector_store.get_analytics_data()
+
+            return {
+                "rag_system": analytics,
+                "status": "active" if RAG_AVAILABLE else "unavailable"
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
+
 @app.on_event("startup")
 async def startup_event():
-    """Application startup - no longer seeding sample data"""
+    """Application startup"""
     print("AgenticAds backend started successfully")
     print("Database connection established")
+
+    if RAG_AVAILABLE:
+        print("RAG system initialized and ready")
+        try:
+            # Initialize RAG system
+            vector_store = get_enhanced_vector_store()
+            print(f"Vector store initialized with {vector_store.collection.count()} documents")
+        except Exception as e:
+            print(f"RAG system initialization error: {e}")
+    else:
+        print("RAG system not available - some features will be disabled")
 
 if __name__ == "__main__":
     import uvicorn

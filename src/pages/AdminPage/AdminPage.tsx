@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, FileText, Users, Calendar, Star, Activity, PieChart, Clock } from 'lucide-react';
+import { Lock, FileText, Users, Calendar, Star, Activity, PieChart, Clock, Database, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { GenerationHistory, FeedbackItem } from '@/types';
 import { ActivityPage } from '../ActivityPage/ActivityPage';
@@ -35,6 +35,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   }, {} as Record<string, number>);
 
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [isSeedingKnowledge, setIsSeedingKnowledge] = useState(false);
+  const [seedMessage, setSeedMessage] = useState('');
 
   const handleSectionChange = (section: string) => {
     setActiveSection(section);
@@ -42,6 +44,40 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   const handleBackToDashboard = () => {
     setActiveSection('dashboard');
+  };
+
+  const handleSeedKnowledgeBase = async () => {
+    setIsSeedingKnowledge(true);
+    setSeedMessage('');
+
+    try {
+      // Get admin token from localStorage
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        setSeedMessage('❌ Admin authentication required');
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rag/seed-knowledge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSeedMessage(`✅ ${data.message}`);
+      } else {
+        const error = await response.text();
+        setSeedMessage(`❌ Failed to seed knowledge base: ${error}`);
+      }
+    } catch (error) {
+      setSeedMessage(`❌ Network error: ${error}`);
+    } finally {
+      setIsSeedingKnowledge(false);
+    }
   };
 
   // Render different pages based on active section
@@ -52,6 +88,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   if (activeSection === 'insights') {
     return <InsightsPage feedbackList={feedbackList} onBack={handleBackToDashboard} />;
   }
+
   return (
     <div className="admin-dashboard">
       <header className="admin-header">
@@ -79,6 +116,36 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <Star size={20} />
               Customer Insights
             </button>
+          </div>
+        </div>
+
+        {/* RAG System Controls */}
+        <div className="rag-controls-section">
+          <div className="rag-controls-header">
+          </div>
+          <div className="rag-controls">
+            <Button
+              onClick={handleSeedKnowledgeBase}
+              disabled={isSeedingKnowledge}
+              className="seed-knowledge-btn"
+            >
+              {isSeedingKnowledge ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Seeding Knowledge Base...
+                </>
+              ) : (
+                <>
+                  <Database size={16} />
+                  Seed RAG Knowledge Base
+                </>
+              )}
+            </Button>
+            {seedMessage && (
+              <div className={`seed-message ${seedMessage.includes('✅') ? 'success' : 'error'}`}>
+                {seedMessage}
+              </div>
+            )}
           </div>
         </div>
 

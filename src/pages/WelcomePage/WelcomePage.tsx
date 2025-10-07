@@ -135,21 +135,15 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
         <div className="container">
           <h2 className="section-title">How It Works</h2>
           <div className="video-container">
-            <div className="video-placeholder">
-              <Play size={64} />
-              <h3>Demo Video Coming Soon</h3>
-              <p>Watch how AgenticAds transforms your ideas into perfect ads</p>
-            </div>
-            {/* YouTube embed will be added here later */}
-            {/* <iframe 
-              width="100%" 
-              height="400" 
-              src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
-              title="AgenticAds Demo" 
-              frameBorder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            <iframe 
+              width="100%"
+              height="500"
+              src="https://www.youtube.com/embed/4_i3H8mvVZk?autoplay=0&showinfo=0&controls=1"
+              title="AgenticAds Demo"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen>
-            </iframe> */}
+            </iframe> 
           </div>
         </div>
       </section>
