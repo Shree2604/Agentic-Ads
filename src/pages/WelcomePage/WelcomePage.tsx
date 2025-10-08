@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Wand2, Type, Image, Video, Sparkles, Check, Github, Linkedin, Mail, Play, ChevronDown, Globe } from 'lucide-react';
+import { Zap, Wand2, Type, Image, Video, Sparkles, Check, Github, Linkedin, Mail, ChevronDown, Globe } from 'lucide-react';
 import { Navigation } from '@/components/Navigation/Navigation';
 import { Button } from '@/components/ui/Button';
 import './WelcomePage.css';
