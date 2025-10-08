@@ -7,23 +7,13 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union, Dict, Any
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager  # ADD THIS IMPORT
 import os
 import secrets
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
-app = FastAPI(title="AgenticAds Backend API", version="1.0.0")
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # React dev server
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # MongoDB connection
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
@@ -50,6 +40,7 @@ try:
         get_knowledge_manager,
         run_generation_workflow
     )
+    from rag.feedback_insights import get_feedback_insights
     RAG_AVAILABLE = True
 except ImportError as e:
     print(f"RAG system not available: {e}")
@@ -144,6 +135,48 @@ def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(securi
         return username
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+# Application lifespan manager - DEFINE BEFORE FastAPI app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    print("AgenticAds backend started successfully")
+    print("Database connection established")
+
+    if RAG_AVAILABLE:
+        print("RAG system initialized and ready")
+        try:
+            vector_store = get_enhanced_vector_store()
+            print(f"Vector store initialized with {vector_store.vector_store.collection.count()} documents")
+        except Exception as e:
+            print(f"RAG system initialization error: {e}")
+            print("RAG features will be unavailable")
+    else:
+        print("RAG system not available - some features will be disabled")
+
+    yield
+
+    # Cleanup (if needed)
+    print("Shutting down AgenticAds backend")
+
+# CREATE FastAPI app with lifespan
+app = FastAPI(title="AgenticAds Backend API", version="1.0.0", lifespan=lifespan)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:3000",  # React dev server
+        "http://127.0.0.1:5173",  # Alternative localhost
+        "http://127.0.0.1:3000",  # Alternative localhost
+        "*"  # Allow all origins for development
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # API Routes
 @app.get("/")
@@ -260,23 +293,6 @@ if RAG_AVAILABLE:
     async def generate_rag_content(request: RAGGenerationRequest):
         """Generate content using agentic RAG system"""
         try:
-            # Check if RAG is available
-            if not RAG_AVAILABLE:
-                # Fallback to mock generation
-                return RAGGenerationResponse(
-                    text=f"🚀 {request.ad_text}\n\n#{request.platform.lower()} #advertisement",
-                    poster_prompt=f"Create a {request.tone} poster for {request.platform} featuring: {request.ad_text}",
-                    video_script=f"SCENE 1: Show product/service\nNARRATION: {request.ad_text}\n\nSCENE 2: Call to action\nNARRATION: Visit us today!",
-                    quality_scores={"text": 8.0, "poster": 7.0, "video": 7.0},
-                    validation_feedback={
-                        "text_feedback": "Generated with fallback system",
-                        "poster_feedback": "Generated with fallback system",
-                        "video_feedback": "Generated with fallback system",
-                        "overall_assessment": "PASS"
-                    },
-                    errors=["RAG system not available, using fallback generation"]
-                )
-
             # Initialize RAG system
             vector_store = get_enhanced_vector_store()
 
@@ -287,13 +303,21 @@ if RAG_AVAILABLE:
             except Exception as e:
                 print(f"Warning: Could not seed knowledge base: {e}")
 
+            # Aggregate recent feedback insights to guide generation
+            feedback_insights = await get_feedback_insights(
+                db,
+                platform=request.platform,
+                tone=request.tone
+            )
+
             # Run generation workflow
             result = await run_generation_workflow(
                 input_text=request.ad_text,
                 platform=request.platform,
                 tone=request.tone,
                 output_types=request.outputs,
-                brand_guidelines=request.brand_guidelines
+                brand_guidelines=request.brand_guidelines,
+                feedback_insights=feedback_insights
             )
 
             return RAGGenerationResponse(
@@ -371,27 +395,6 @@ if RAG_AVAILABLE:
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
-
-@app.on_event("startup")
-async def startup_event():
-    """Application startup"""
-    print("AgenticAds backend started successfully")
-    print("Database connection established")
-
-    if RAG_AVAILABLE:
-        print("RAG system initialized and ready")
-        try:
-            # Initialize RAG system only if dependencies are available
-            try:
-                vector_store = get_enhanced_vector_store()
-                print(f"Vector store initialized with {vector_store.vector_store.collection.count()} documents")
-            except Exception as e:
-                print(f"RAG system initialization error: {e}")
-                print("RAG features will be unavailable")
-        except Exception as e:
-            print(f"RAG system initialization error: {e}")
-    else:
-        print("RAG system not available - some features will be disabled")
 
 if __name__ == "__main__":
     import uvicorn

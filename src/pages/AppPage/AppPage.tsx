@@ -118,6 +118,7 @@ export const AppPage: React.FC<AppPageProps> = ({
 
               <div className="form-group">
                 <label>Output Types</label>
+                <p className="form-hint">Select at least one output type to generate</p>
                 <div className="output-types">
                   {outputTypes.map(({ id, label, icon: Icon }) => (
                     <div
@@ -135,7 +136,7 @@ export const AppPage: React.FC<AppPageProps> = ({
               <Button
                 variant="primary"
                 onClick={onGenerate}
-                disabled={generating || !formData.adText.trim()}
+                disabled={generating || !formData.adText.trim() || formData.outputs.length === 0}
                 className="generate-button"
               >
                 {generating ? 'Generating...' : 'Generate Ad'}

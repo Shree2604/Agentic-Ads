@@ -54,7 +54,7 @@ export const useAppState = () => {
     adText: '',
     tone: 'professional',
     platform: 'Instagram',
-    outputs: ['text', 'poster', 'video'],
+    outputs: [], // Start with no outputs selected, let users choose
     logoPosition: 'bottom-right',
     logo: undefined
   });

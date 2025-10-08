@@ -51,6 +51,13 @@ class GenerationState(TypedDict):
     final_poster_prompt: str
     final_video_script: str
 
+    # Feedback insights
+    feedback_summary: Optional[str]
+    feedback_highlights: List[str]
+    feedback_suggestions: List[str]
+    feedback_keywords: List[str]
+    feedback_avg_rating: Optional[float]
+
     # Error handling
     errors: List[str]
     retry_count: int
@@ -129,7 +136,12 @@ class GenerationGraph:
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
                 vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
-                embedding_model=embedding_model
+                embedding_model=embedding_model,
+                feedback_summary=state.get("feedback_summary"),
+                feedback_highlights=state.get("feedback_highlights"),
+                feedback_suggestions=state.get("feedback_suggestions"),
+                feedback_keywords=state.get("feedback_keywords"),
+                feedback_avg_rating=state.get("feedback_avg_rating"),
             )
 
             researcher = ContentResearcher(context)
@@ -226,6 +238,7 @@ class GenerationGraph:
 
     def _quality_assurance_node(self, state: GenerationState) -> GenerationState:
         """Execute quality assurance"""
+        print(f"QA Node: Processing state with generated_text: '{state.get('generated_text', '')[:50]}...'")
         try:
             # Initialize vector store and embedding model
             vector_store = get_enhanced_vector_store()
@@ -243,9 +256,11 @@ class GenerationGraph:
             qa_agent = QualityAssuranceAgent(context)
             new_state = asyncio.run(qa_agent.execute(state))
 
+            print(f"QA Node: Completed. Final text set to: '{new_state.get('final_text', '')[:50]}...'")
             return new_state
 
         except Exception as e:
+            print(f"QA Node: Error - {str(e)}")
             return {
                 **state,
                 "errors": state.get("errors", []) + [f"QA error: {str(e)}"]
@@ -350,6 +365,11 @@ class GenerationGraph:
                 "final_text": initial_state.get("final_text", ""),
                 "final_poster_prompt": initial_state.get("final_poster_prompt", ""),
                 "final_video_script": initial_state.get("final_video_script", ""),
+                "feedback_summary": initial_state.get("feedback_summary"),
+                "feedback_highlights": initial_state.get("feedback_highlights", []),
+                "feedback_suggestions": initial_state.get("feedback_suggestions", []),
+                "feedback_keywords": initial_state.get("feedback_keywords", []),
+                "feedback_avg_rating": initial_state.get("feedback_avg_rating"),
                 "errors": initial_state.get("errors", []),
                 "retry_count": initial_state.get("retry_count", 0)
             }
@@ -375,9 +395,27 @@ async def run_generation_workflow(
     tone: str,
     output_types: List[str],
     brand_guidelines: Optional[str] = None,
+    feedback_insights: Optional[Dict[str, Any]] = None,
     model_name: str = "microsoft/DialoGPT-medium"
 ) -> Dict[str, Any]:
     """Run the complete generation workflow"""
+
+    feedback_summary = None
+    feedback_highlights: List[str] = []
+    feedback_suggestions: List[str] = []
+    feedback_keywords: List[str] = []
+    feedback_avg_rating: Optional[float] = None
+
+    if feedback_insights:
+        feedback_summary = feedback_insights.get("summary")
+        raw_highlights = feedback_insights.get("positive_highlights") or []
+        raw_suggestions = feedback_insights.get("improvement_suggestions") or []
+        raw_keywords = feedback_insights.get("common_keywords") or []
+        feedback_highlights = [str(item) for item in raw_highlights if item]
+        feedback_suggestions = [str(item) for item in raw_suggestions if item]
+        feedback_keywords = [str(item) for item in raw_keywords if item]
+        avg_rating = feedback_insights.get("avg_rating")
+        feedback_avg_rating = float(avg_rating) if avg_rating is not None else None
 
     # Initialize state
     initial_state: GenerationState = {
@@ -393,13 +431,14 @@ async def run_generation_workflow(
         "video_script": "",
         "copywriter_notes": "",
         "visual_designer_notes": "",
-        "video_scriptwriter_notes": "",
-        "quality_scores": {},
-        "validation_feedback": {},
-        "qa_notes": "",
         "final_text": "",
         "final_poster_prompt": "",
         "final_video_script": "",
+        "feedback_summary": feedback_summary,
+        "feedback_highlights": feedback_highlights,
+        "feedback_suggestions": feedback_suggestions,
+        "feedback_keywords": feedback_keywords,
+        "feedback_avg_rating": feedback_avg_rating,
         "errors": [],
         "retry_count": 0
     }
@@ -408,11 +447,17 @@ async def run_generation_workflow(
     graph = create_generation_graph(model_name)
     result = await graph.run(initial_state)
 
-    # Extract final outputs
+    # Extract final outputs - prefer final fields, fallback to generated fields
+    final_text = result.get("final_text", result.get("generated_text", ""))
+    final_poster = result.get("final_poster_prompt", result.get("poster_prompt", ""))
+    final_video = result.get("final_video_script", result.get("video_script", ""))
+
+    print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: '{final_poster[:30]}...', Video: '{final_video[:30]}...'")
+
     return {
-        "text": result.get("final_text", result.get("generated_text", "")),
-        "poster_prompt": result.get("final_poster_prompt", result.get("poster_prompt", "")),
-        "video_script": result.get("final_video_script", result.get("video_script", "")),
+        "text": final_text,
+        "poster_prompt": final_poster,
+        "video_script": final_video,
         "quality_scores": result.get("quality_scores", {}),
         "validation_feedback": result.get("validation_feedback", {}),
         "errors": result.get("errors", [])

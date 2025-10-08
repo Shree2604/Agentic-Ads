@@ -8,7 +8,16 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
 
     try {
       // Call the RAG API for actual generation
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/rag/generate`, {
+      console.log('Making RAG API request to:', `http://localhost:8000/api/rag/generate`);
+      console.log('Request payload:', {
+        platform: appState.formData.platform,
+        tone: appState.formData.tone,
+        ad_text: appState.formData.adText,
+        outputs: appState.formData.outputs,
+        brand_guidelines: appState.formData.brandGuidelines || undefined,
+      });
+
+      const response = await fetch(`http://localhost:8000/api/rag/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -22,11 +31,17 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
         }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error response:', errorText);
         throw new Error(`RAG generation failed: ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('Raw API response:', result);
 
       // Handle errors from RAG system
       if (result.errors && result.errors.length > 0) {
@@ -56,9 +71,17 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
 
       // Set the result from RAG system
       console.log('RAG Generation result:', result);
-      
+      console.log('RAG Generation result.text:', result.text);
+      console.log('RAG Generation result.poster_prompt:', result.poster_prompt);
+      console.log('RAG Generation result.video_script:', result.video_script);
+
       // Check if we got empty results (indicating API issues)
       const hasEmptyResults = !result.text && !result.poster_prompt && !result.video_script;
+      console.log('hasEmptyResults:', hasEmptyResults);
+
+      if (hasEmptyResults) {
+        console.warn('No content received from RAG API - all fields are empty');
+      }
       
       appState.setResult({
         rewrittenText: result.text || (hasEmptyResults ? 
