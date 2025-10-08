@@ -97,7 +97,6 @@ class RAGGenerationRequest(BaseModel):
     ad_text: str
     outputs: List[str]
     brand_guidelines: Optional[str] = None
-    logo_data: Optional[str] = None  # Base64 encoded logo image
     logo_position: str = "top-right"  # top-left, top-right, bottom-left, bottom-right, center
 
 class RAGGenerationResponse(BaseModel):
@@ -329,19 +328,6 @@ if RAG_AVAILABLE:
                 tone=request.tone
             )
 
-            # Convert logo data from base64 to bytes if provided
-            logo_bytes = None
-            if request.logo_data:
-                try:
-                    # Clean the base64 data (remove data:image/jpeg;base64, prefix if present)
-                    clean_base64 = request.logo_data.replace('data:image/jpeg;base64,', '').replace('data:image/png;base64,', '')
-                    logo_bytes = base64.b64decode(clean_base64)
-                    print(f"✅ Logo data decoded successfully, size: {len(logo_bytes)} bytes")
-                except Exception as e:
-                    print(f"⚠️ Failed to decode logo data: {str(e)}")
-                    print(f"⚠️ Logo data received: {request.logo_data[:50]}...")
-                    logo_bytes = None
-
             # Run generation workflow with logo support
             result = await run_generation_workflow(
                 input_text=request.ad_text,
@@ -350,7 +336,8 @@ if RAG_AVAILABLE:
                 output_types=request.outputs,
                 brand_guidelines=request.brand_guidelines,
                 feedback_insights=feedback_insights,
-                logo_data=logo_bytes,
+                logo_data=None,  # No logo data from JSON request
+                logo_file=None,  # No logo file from JSON request
                 logo_position=request.logo_position
             )
 
@@ -385,6 +372,86 @@ if RAG_AVAILABLE:
                     "overall_assessment": "PASS"
                 },
                 errors=[f"RAG generation error: {str(e)}"]
+            )
+
+    @app.post("/api/rag/generate-with-logo", response_model=RAGGenerationResponse)
+    async def generate_rag_content_with_logo(
+        platform: str = Form(...),
+        tone: str = Form(...),
+        ad_text: str = Form(...),
+        outputs: str = Form(...),  # Comma-separated list
+        brand_guidelines: Optional[str] = Form(None),
+        logo_position: str = Form("top-right"),
+        logo_file: Optional[UploadFile] = File(None)
+    ):
+        """Generate content with logo upload using agentic RAG system"""
+        try:
+            # Parse outputs from comma-separated string
+            output_types = [output.strip() for output in outputs.split(",")]
+
+            # Initialize RAG system
+            vector_store = get_enhanced_vector_store()
+
+            # Seed knowledge base if empty
+            try:
+                if vector_store.vector_store.collection.count() == 0:
+                    vector_store.seed_comprehensive_knowledge()
+            except Exception as e:
+                print(f"Warning: Could not seed knowledge base: {e}")
+
+            # Aggregate recent feedback insights to guide generation
+            feedback_insights = await get_feedback_insights(
+                db,
+                platform=platform,
+                tone=tone
+            )
+
+            # Run generation workflow with logo support
+            result = await run_generation_workflow(
+                input_text=ad_text,
+                platform=platform,
+                tone=tone,
+                output_types=output_types,
+                brand_guidelines=brand_guidelines,
+                feedback_insights=feedback_insights,
+                logo_data=None,  # Will be processed by LogoIntegrationAgent
+                logo_file=logo_file,  # Pass the uploaded file
+                logo_position=logo_position
+            )
+
+            return RAGGenerationResponse(
+                text=result.get("text", f"🚀 {ad_text}"),
+                poster_prompt=result.get("poster_prompt", f"Create a {tone} poster for {platform}"),
+                poster_url=result.get("poster_url"),  # Poster URL with logo integrated
+                video_script=result.get("video_script", f"Video script for {ad_text}"),
+                quality_scores=result.get("quality_scores", {"text": 8.0, "poster": 7.0, "video": 7.0}),
+                validation_feedback=result.get("validation_feedback", {
+                    "text_feedback": "Generated successfully with logo integration",
+                    "poster_feedback": "Generated successfully with logo integration",
+                    "video_feedback": "Generated successfully with logo integration",
+                    "overall_assessment": "PASS"
+                }),
+                errors=result.get("errors", [])
+            )
+
+        except Exception as e:
+            print(f"RAG generation with logo error: {str(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            # Return fallback response on any error
+            return RAGGenerationResponse(
+                text=f"🚀 {ad_text}\n\n#{platform.lower()} #advertisement",
+                poster_prompt=f"Create a {tone} poster for {platform} featuring: {ad_text}",
+                poster_url=None,
+                video_script=f"SCENE 1: Show product/service\nNARRATION: {ad_text}\n\nSCENE 2: Call to action\nNARRATION: Visit us today!",
+                quality_scores={"text": 8.0, "poster": 7.0, "video": 7.0},
+                validation_feedback={
+                    "text_feedback": "Generated with fallback system due to error",
+                    "poster_feedback": "Generated with fallback system due to error",
+                    "video_feedback": "Generated with fallback system due to error",
+                    "overall_assessment": "PASS"
+                },
+                errors=[f"RAG generation with logo error: {str(e)}"]
             )
 
     @app.post("/api/rag/ingest-historical")

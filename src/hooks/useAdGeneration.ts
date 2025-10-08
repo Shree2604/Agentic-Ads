@@ -2,66 +2,63 @@ import { useCallback } from 'react';
 import { useAppState } from './useAppState';
 import { useApiData } from './useApiData';
 
-// Helper function to convert file to base64
-const convertFileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Remove the data:image/jpeg;base64, prefix if present
-      const base64Data = result.split(',')[1];
-      resolve(base64Data[1]);
-    };
-    reader.onerror = () => {
-      reject(new Error('Failed to convert file to base64'));
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
 export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiData: ReturnType<typeof useApiData>) => {
 
   const handleGenerate = useCallback(async () => {
     appState.setGenerating(true);
 
     try {
-      // Convert logo file to base64 if provided
-      let logoData = undefined;
-      if (appState.formData.logo) {
-        try {
-          logoData = await convertFileToBase64(appState.formData.logo);
-        } catch (error) {
-          console.error('Failed to convert logo to base64:', error);
-        }
-      }
+      // Check if logo file is provided to decide which endpoint to use
+      const hasLogo = !!appState.formData.logo;
+      const endpoint = hasLogo ? 'generate-with-logo' : 'generate';
 
-      // Call the RAG API for actual generation
-      console.log('Making RAG API request to:', `http://localhost:8000/api/rag/generate`);
+      console.log('Making RAG API request to:', `http://localhost:8000/api/rag/${endpoint}`);
       console.log('Request payload:', {
         platform: appState.formData.platform,
         tone: appState.formData.tone,
         ad_text: appState.formData.adText,
         outputs: appState.formData.outputs,
         brand_guidelines: appState.formData.brandGuidelines || undefined,
-        logo_data: logoData ? 'base64_data_provided' : undefined, // Don't log actual base64 data
-        logo_position: 'top-right', // Always use top-right
+        logo_file: hasLogo ? 'file_provided' : undefined,
+        logo_position: 'top-right',
       });
 
-      const response = await fetch(`http://localhost:8000/api/rag/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          platform: appState.formData.platform,
-          tone: appState.formData.tone,
-          ad_text: appState.formData.adText,
-          outputs: appState.formData.outputs,
-          brand_guidelines: appState.formData.brandGuidelines || undefined,
-          logo_data: logoData,
-          logo_position: 'top-right', // Always use top-right
-        }),
-      });
+      let response: Response;
+
+      if (hasLogo) {
+        // Use FormData for file upload
+        const formData = new FormData();
+        formData.append('platform', appState.formData.platform);
+        formData.append('tone', appState.formData.tone);
+        formData.append('ad_text', appState.formData.adText);
+        formData.append('outputs', appState.formData.outputs.join(','));
+        if (appState.formData.brandGuidelines) {
+          formData.append('brand_guidelines', appState.formData.brandGuidelines);
+        }
+        formData.append('logo_position', 'top-right');
+        formData.append('logo_file', appState.formData.logo!);
+
+        response = await fetch(`http://localhost:8000/api/rag/${endpoint}`, {
+          method: 'POST',
+          body: formData, // No Content-Type header needed for FormData
+        });
+      } else {
+        // Use JSON for requests without logo
+        response = await fetch(`http://localhost:8000/api/rag/${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            platform: appState.formData.platform,
+            tone: appState.formData.tone,
+            ad_text: appState.formData.adText,
+            outputs: appState.formData.outputs,
+            brand_guidelines: appState.formData.brandGuidelines || undefined,
+            logo_position: 'top-right',
+          }),
+        });
+      }
 
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));

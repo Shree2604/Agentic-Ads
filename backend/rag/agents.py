@@ -10,6 +10,12 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 from .text_generation import get_text_generator
 from .poster_generation import PosterGenerationAgent, PosterGenerationContext
+import tempfile
+import uuid
+import aiofiles
+from pathlib import Path
+import io
+from PIL import Image
 
 @dataclass
 class AgentContext:
@@ -293,8 +299,12 @@ class VisualDesignerAgent(BaseAgent):
 
         print("VisualDesignerAgent: Poster generation requested - starting process")
         generated_text = state.get("generated_text", "")
-        logo_data = state.get("logo_data")
+        logo_data = state.get("logo_data")  # Get from state, not context
         logo_position = state.get("logo_position", "top-right")
+
+        print(f"🎨 VisualDesignerAgent: Logo data available: {bool(logo_data)}")
+        print(f"🎨 VisualDesignerAgent: Logo data size: {len(logo_data) if logo_data else 0} bytes")
+        print(f"🎨 VisualDesignerAgent: Logo position: {logo_position}")
 
         # Research visual design patterns
         visual_queries = [
@@ -332,13 +342,12 @@ class VisualDesignerAgent(BaseAgent):
                 brand_guidelines=self.context.brand_guidelines,
                 input_text=self.context.input_text,
                 poster_prompt=design_prompt,
-                logo_data=self.context.logo_data,  # Use from AgentContext
-                logo_position=self.context.logo_position  # Use from AgentContext
+                logo_data=logo_data,  # Use logo_data from state
+                logo_position=logo_position  # Use logo_position from state
             )
 
             # Create poster generation agent
             self.poster_agent = PosterGenerationAgent(poster_context)
-
             # Generate the actual poster
             poster_state = await self.poster_agent.generate_poster({
                 "poster_prompt": design_prompt,  # Make sure this is passed
@@ -539,8 +548,199 @@ class VideoScriptwriterAgent(BaseAgent):
             f"Creative cues:\n{inspiration.strip()}"
         )
 
+class LogoIntegrationAgent(BaseAgent):
+    """Handles logo upload, temporary storage, and integration into final posters"""
+
+    def __init__(self, context: AgentContext):
+        super().__init__("LogoIntegrationAgent", context)
+        self.temp_logo_dir = Path(tempfile.gettempdir()) / "agentic_ads_logos"
+        self.temp_logo_dir.mkdir(exist_ok=True, parents=True)
+
+    async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Process logo upload and prepare for poster integration"""
+        print("🎨 LogoIntegrationAgent: Starting logo processing...")
+
+        # Check if logo file was uploaded
+        logo_file = state.get("logo_file")
+        if not logo_file:
+            print("ℹ️ LogoIntegrationAgent: No logo file provided")
+            return {
+                **state,
+                "logo_processed": False,
+                "logo_integration_notes": "No logo file to process"
+            }
+
+        try:
+            print(f"🎨 LogoIntegrationAgent: Processing logo file: {logo_file.filename}")
+
+            # Read logo file data
+            logo_data = await logo_file.read()
+            print(f"🎨 LogoIntegrationAgent: Logo file read, size: {len(logo_data)} bytes")
+
+            # Validate logo file (check if it's a valid image)
+            if not self._validate_logo_file(logo_data):
+                print("❌ LogoIntegrationAgent: Invalid logo file format")
+                return {
+                    **state,
+                    "logo_processed": False,
+                    "logo_error": "Invalid logo file format. Please upload a PNG, JPG, or SVG file.",
+                    "logo_integration_notes": "Logo validation failed"
+                }
+
+            # Generate unique logo ID for this session
+            logo_id = f"logo_{uuid.uuid4().hex[:12]}"
+
+            # Save logo temporarily
+            logo_path = await self._save_logo_temporarily(logo_data, logo_id, logo_file.filename)
+            print(f"🎨 LogoIntegrationAgent: Logo saved to: {logo_path}")
+
+            # Update context with logo data and position
+            updated_context = self.context
+            updated_context.logo_data = logo_data
+            updated_context.logo_position = state.get("logo_position", "top-right")
+
+            print(f"🎨 LogoIntegrationAgent: Logo prepared for integration at {updated_context.logo_position}")
+
+            return {
+                **state,
+                "logo_processed": True,
+                "logo_data": logo_data,  # Add logo_data to state for next agents
+                "logo_id": logo_id,
+                "logo_path": str(logo_path),
+                "logo_filename": logo_file.filename,
+                "logo_size": len(logo_data),
+                "logo_integration_notes": f"Logo '{logo_file.filename}' ready for poster integration"
+            }
+
+        except Exception as e:
+            error_msg = f"Error processing logo: {str(e)}"
+            print(f"❌ LogoIntegrationAgent: {error_msg}")
+            return {
+                **state,
+                "logo_processed": False,
+                "logo_error": error_msg,
+                "logo_integration_notes": "Logo processing failed"
+            }
+
+    def _validate_logo_file(self, logo_data: bytes) -> bool:
+        """Validate that the uploaded file is a valid image"""
+        try:
+            # Try to open as PIL image to validate
+            image = Image.open(io.BytesIO(logo_data))
+
+            # Check file size (limit to 5MB)
+            if len(logo_data) > 5 * 1024 * 1024:
+                print("❌ LogoIntegrationAgent: Logo file too large (>5MB)")
+                return False
+
+            # Check dimensions (reasonable logo size)
+            width, height = image.size
+            if width > 2000 or height > 2000:
+                print("❌ LogoIntegrationAgent: Logo dimensions too large (>2000px)")
+                return False
+
+            # Check if it's a common web format
+            valid_formats = ['PNG', 'JPEG', 'JPG', 'SVG', 'WEBP']
+            if image.format and image.format.upper() not in valid_formats:
+                print(f"❌ LogoIntegrationAgent: Unsupported format: {image.format}")
+                return False
+
+            print(f"✅ LogoIntegrationAgent: Valid logo - {image.format} {width}x{height}")
+            return True
+
+        except Exception as e:
+            print(f"❌ LogoIntegrationAgent: Logo validation failed: {str(e)}")
+            return False
+
+    async def _save_logo_temporarily(self, logo_data: bytes, logo_id: str, original_filename: str) -> Path:
+        """Save logo file temporarily with unique ID"""
+        # Determine file extension from original filename
+        file_extension = Path(original_filename).suffix.lower() or ".png"
+
+        # Generate unique filename
+        temp_filename = f"{logo_id}{file_extension}"
+        temp_path = self.temp_logo_dir / temp_filename
+
+        # Save logo data to temporary file
+        async with aiofiles.open(temp_path, 'wb') as f:
+            await f.write(logo_data)
+
+        print(f"💾 LogoIntegrationAgent: Logo saved to temporary file: {temp_path}")
+        return temp_path
+
+    def cleanup_temp_logo(self, logo_id: str):
+        """Clean up temporary logo file"""
+        try:
+            # Find and remove the temporary logo file
+            for logo_file in self.temp_logo_dir.glob(f"{logo_id}.*"):
+                logo_file.unlink()
+                print(f"🧹 LogoIntegrationAgent: Cleaned up temp logo: {logo_file}")
+        except Exception as e:
+            print(f"⚠️ LogoIntegrationAgent: Failed to cleanup logo {logo_id}: {str(e)}")
+
+
+class PosterFinalizationAgent(BaseAgent):
+    """Finalizes posters with logo integration and cleanup"""
+
+    def __init__(self, context: AgentContext):
+        super().__init__("PosterFinalizationAgent", context)
+        self.logo_agent = LogoIntegrationAgent(context)
+
+    async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Finalize poster with proper logo integration"""
+        print("🎨 PosterFinalizationAgent: Starting poster finalization...")
+
+        # Check if we have a logo to integrate
+        logo_processed = state.get("logo_processed", False)
+
+        if not logo_processed:
+            print("ℹ️ PosterFinalizationAgent: No logo to integrate")
+            return {
+                **state,
+                "poster_finalized": True,
+                "finalization_notes": "No logo integration needed"
+            }
+
+        try:
+            # Get logo information
+            logo_id = state.get("logo_id")
+            poster_url = state.get("poster_url")
+
+            if not logo_id or not poster_url:
+                print("⚠️ PosterFinalizationAgent: Missing logo or poster data")
+                return {
+                    **state,
+                    "poster_finalized": False,
+                    "finalization_notes": "Missing logo or poster data for finalization"
+                }
+
+            print(f"🎨 PosterFinalizationAgent: Finalizing poster with logo {logo_id}")
+
+            # The logo integration is already handled by the VisualDesignerAgent
+            # This agent just ensures proper cleanup and final state
+
+            # Clean up temporary logo file after successful integration
+            self.logo_agent.cleanup_temp_logo(logo_id)
+
+            print("✅ PosterFinalizationAgent: Poster finalization completed successfully")
+
+            return {
+                **state,
+                "poster_finalized": True,
+                "finalization_notes": "Poster finalized with logo integration and cleanup completed"
+            }
+
+        except Exception as e:
+            error_msg = f"Error finalizing poster: {str(e)}"
+            print(f"❌ PosterFinalizationAgent: {error_msg}")
+            return {
+                **state,
+                "poster_finalized": False,
+                "finalization_notes": error_msg
+            }
+
+
 class QualityAssuranceAgent(BaseAgent):
-    """Validates outputs against guidelines and feedback"""
 
     def __init__(self, context: AgentContext):
         super().__init__("QualityAssuranceAgent", context)

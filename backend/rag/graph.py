@@ -14,7 +14,9 @@ from .agents import (
     CopywriterAgent,
     VisualDesignerAgent,
     VideoScriptwriterAgent,
-    QualityAssuranceAgent
+    QualityAssuranceAgent,
+    LogoIntegrationAgent,
+    PosterFinalizationAgent
 )
 
 from .enhanced_vector_store import get_enhanced_vector_store
@@ -30,6 +32,16 @@ class GenerationState(TypedDict):
     # Logo integration
     logo_data: Optional[bytes]
     logo_position: str
+    logo_file: Optional[Any]  # Uploaded file object from FastAPI
+    logo_processed: bool
+    logo_id: Optional[str]
+    logo_path: Optional[str]
+    logo_filename: Optional[str]
+    logo_size: Optional[int]
+    logo_integration_notes: Optional[str]
+    logo_error: Optional[str]
+    poster_finalized: bool
+    finalization_notes: Optional[str]
 
     # Research phase
     research_context: List[str]
@@ -87,7 +99,9 @@ class GenerationGraph:
         # Add nodes (agents)
         workflow.add_node("research", self._research_node)
         workflow.add_node("text_generation", self._text_generation_node)
+        workflow.add_node("logo_integration", self._logo_integration_node)
         workflow.add_node("poster_generation", self._poster_generation_node)
+        workflow.add_node("poster_finalization", self._poster_finalization_node)
         workflow.add_node("video_generation", self._video_generation_node)
         workflow.add_node("quality_assurance", self._quality_assurance_node)
         workflow.add_node("refinement", self._refinement_node)
@@ -96,10 +110,12 @@ class GenerationGraph:
         # Define the flow - Sequential instead of parallel to avoid concurrent updates
         workflow.set_entry_point("research")
 
-        # Research -> Text generation -> Poster generation -> Video generation -> Quality assurance
+        # Research -> Text generation -> Logo integration -> Poster generation -> Poster finalization -> Video generation -> Quality assurance
         workflow.add_edge("research", "text_generation")
-        workflow.add_edge("text_generation", "poster_generation")
-        workflow.add_edge("poster_generation", "video_generation")
+        workflow.add_edge("text_generation", "logo_integration")
+        workflow.add_edge("logo_integration", "poster_generation")
+        workflow.add_edge("poster_generation", "poster_finalization")
+        workflow.add_edge("poster_finalization", "video_generation")
         workflow.add_edge("video_generation", "quality_assurance")
 
         # Quality assurance -> refinement (if needed)
@@ -191,6 +207,41 @@ class GenerationGraph:
                 "errors": state.get("errors", []) + [f"Text generation error: {str(e)}"]
             }
 
+    def _logo_integration_node(self, state: GenerationState) -> GenerationState:
+        """Execute logo integration"""
+        try:
+            print("🎨 Logo Integration Node: Starting logo processing...")
+
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
+            context = AgentContext(
+                platform=state["platform"],
+                tone=state["tone"],
+                brand_guidelines=state.get("brand_guidelines"),
+                input_text=state["input"],
+                vector_store=vector_store.vector_store,
+                embedding_model=embedding_model,
+                logo_data=state.get("logo_data"),
+                logo_position=state.get("logo_position", "top-right")
+            )
+
+            logo_agent = LogoIntegrationAgent(context)
+            new_state = asyncio.run(logo_agent.execute(state))
+
+            print(f"🎨 Logo Integration Node: Completed. Logo processed: {new_state.get('logo_processed', False)}")
+            return new_state
+
+        except Exception as e:
+            print(f"❌ Logo Integration Node: Error - {str(e)}")
+            return {
+                **state,
+                "errors": state.get("errors", []) + [f"Logo integration error: {str(e)}"],
+                "logo_processed": False,
+                "logo_error": str(e)
+            }
+
     def _poster_generation_node(self, state: GenerationState) -> GenerationState:
         """Execute poster generation"""
         try:
@@ -223,6 +274,41 @@ class GenerationGraph:
             return {
                 **state,
                 "errors": state.get("errors", []) + [f"Poster generation error: {str(e)}"]
+            }
+
+    def _poster_finalization_node(self, state: GenerationState) -> GenerationState:
+        """Execute poster finalization"""
+        try:
+            print("🎨 Poster Finalization Node: Starting poster finalization...")
+
+            # Initialize vector store and embedding model
+            vector_store = get_enhanced_vector_store()
+            embedding_model = vector_store.embedding_model
+
+            context = AgentContext(
+                platform=state["platform"],
+                tone=state["tone"],
+                brand_guidelines=state.get("brand_guidelines"),
+                input_text=state["input"],
+                vector_store=vector_store.vector_store,
+                embedding_model=embedding_model,
+                logo_data=state.get("logo_data"),
+                logo_position=state.get("logo_position", "top-right")
+            )
+
+            finalization_agent = PosterFinalizationAgent(context)
+            new_state = asyncio.run(finalization_agent.execute(state))
+
+            print(f"🎨 Poster Finalization Node: Completed. Finalized: {new_state.get('poster_finalized', False)}")
+            return new_state
+
+        except Exception as e:
+            print(f"❌ Poster Finalization Node: Error - {str(e)}")
+            return {
+                **state,
+                "errors": state.get("errors", []) + [f"Poster finalization error: {str(e)}"],
+                "poster_finalized": False,
+                "finalization_notes": str(e)
             }
 
     def _video_generation_node(self, state: GenerationState) -> GenerationState:
@@ -369,6 +455,16 @@ class GenerationGraph:
                 "output_types": initial_state.get("output_types", []),
                 "logo_data": initial_state.get("logo_data"),
                 "logo_position": initial_state.get("logo_position", "top-right"),
+                "logo_file": initial_state.get("logo_file"),
+                "logo_processed": initial_state.get("logo_processed", False),
+                "logo_id": initial_state.get("logo_id"),
+                "logo_path": initial_state.get("logo_path"),
+                "logo_filename": initial_state.get("logo_filename"),
+                "logo_size": initial_state.get("logo_size"),
+                "logo_integration_notes": initial_state.get("logo_integration_notes"),
+                "logo_error": initial_state.get("logo_error"),
+                "poster_finalized": initial_state.get("poster_finalized", False),
+                "finalization_notes": initial_state.get("finalization_notes"),
                 "research_context": initial_state.get("research_context", []),
                 "research_summary": initial_state.get("research_summary", ""),
                 "generated_text": initial_state.get("generated_text", ""),
@@ -421,6 +517,7 @@ async def run_generation_workflow(
     feedback_insights: Optional[Dict[str, Any]] = None,
     model_name: str = "microsoft/DialoGPT-medium",
     logo_data: Optional[bytes] = None,
+    logo_file: Optional[Any] = None,
     logo_position: str = "top-right"
 ) -> Dict[str, Any]:
     """Run the complete generation workflow"""
@@ -451,6 +548,16 @@ async def run_generation_workflow(
         "output_types": output_types,
         "logo_data": logo_data,
         "logo_position": logo_position,
+        "logo_file": logo_file,
+        "logo_processed": False,
+        "logo_id": None,
+        "logo_path": None,
+        "logo_filename": None,
+        "logo_size": None,
+        "logo_integration_notes": None,
+        "logo_error": None,
+        "poster_finalized": False,
+        "finalization_notes": None,
         "research_context": [],
         "research_summary": "",
         "generated_text": "",
