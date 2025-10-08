@@ -374,45 +374,101 @@ class VisualDesignerAgent(BaseAgent):
         highlights: List[str],
         suggestions: List[str]
     ) -> str:
-        """Generate poster prompt synchronously with 80/20 input-to-context ratio"""
+        """Generate detailed poster prompt focused on visual design from user's ad text"""
 
-        # 80% BASED ON USER INPUT TEXT
-        # Extract key elements from user input for the main design focus
-        user_input_focus = text[:200]  # Primary content from user's ad text (80% weight)
+        # Extract key elements from the user's ad text for visual design
+        user_text = text[:300]  # Get the main content
 
-        # 20% ENHANCED BY RETRIEVED CONTEXT
-        # Use retrieved context sparingly for visual enhancement
-        context_enhancement = ""
-        if inspiration and len(inspiration.strip()) > 0:
-            # Extract only key visual cues (20% weight)
-            context_lines = inspiration.strip().split('\n')[:2]  # Limit to 2 lines max
-            context_enhancement = " ".join(context_lines)[:100]  # Limit to 100 chars
+        # Analyze the text to determine visual theme and elements
+        visual_elements = self._extract_visual_elements(user_text)
 
-        improvement_line = (
-            "Consider user feedback: " + "; ".join(suggestions[:1])  # Only 1 suggestion
-        ) if suggestions else ""
-
-        highlight_line = (
-            "Highlight: " + "; ".join(highlights[:1])  # Only 1 highlight
-        ) if highlights else ""
-
-        # Construct prompt with explicit 80/20 ratio
+        # Create a detailed visual prompt that focuses on the ad content
         prompt_parts = [
-            f"Create a professional {self.context.platform} poster with:",
-            f"- {self.context.tone} tone and professional design",
-            f"- PRIMARY CONTENT (80% focus): {user_input_focus}",  # 80% user input
-            f"- VISUAL ENHANCEMENT (20% inspiration): {context_enhancement}",  # 20% context
-            f"- Platform-optimized layout for {self.context.platform}",
-            f"- Clean typography and strong visual hierarchy"
+            f"Create a professional {self.context.platform} poster design featuring the ad content: '{user_text}'",
+            "",
+            "**VISUAL DESIGN REQUIREMENTS:**",
+            f"- Primary visual theme: {visual_elements.get('theme', 'Modern and professional')}",
+            f"- Color scheme: {visual_elements.get('colors', 'Professional blue and white palette')}",
+            f"- Layout style: {visual_elements.get('layout', 'Clean, modern layout with clear visual hierarchy')}",
+            "",
+            "**CONTENT INTEGRATION:**",
+            "- Main headline text should be prominently displayed",
+            "- Supporting text should complement the main message",
+            "- Include relevant visual metaphors or icons that represent the ad content",
+            "- Ensure text is readable and well-positioned",
+            "",
+            "**PLATFORM OPTIMIZATION:**",
+            f"- Optimized for {self.context.platform} platform specifications",
+            f"- Use {self.context.tone} visual tone throughout",
+            "- Include appropriate visual elements for social media engagement",
+            "",
+            "**TECHNICAL SPECIFICATIONS:**",
+            "- High-quality, professional design",
+            "- Proper contrast for text readability",
+            "- Brand-appropriate styling",
+            "- Mobile-friendly layout"
         ]
 
-        # Add feedback elements only if they enhance the core message (keep minimal)
-        if improvement_line:
-            prompt_parts.append(f"- {improvement_line}")
-        if highlight_line:
-            prompt_parts.append(f"- {highlight_line}")
+        # Add contextual inspiration if available
+        if inspiration and len(inspiration.strip()) > 0:
+            prompt_parts.extend([
+                "",
+                "**DESIGN INSPIRATION:**",
+                f"Consider these design elements: {inspiration[:150]}"
+            ])
+
+        # Add feedback elements if available
+        if highlights or suggestions:
+            prompt_parts.extend([
+                "",
+                "**ENHANCEMENT NOTES:**"
+            ])
+            if highlights:
+                prompt_parts.append(f"- Strengthen: {highlights[0][:100]}")
+            if suggestions:
+                prompt_parts.append(f"- Improve: {suggestions[0][:100]}")
 
         return "\n".join(prompt_parts)
+
+    def _extract_visual_elements(self, text: str) -> Dict[str, str]:
+        """Extract visual design elements from ad text content"""
+        text_lower = text.lower()
+
+        # Determine visual theme based on content
+        theme_keywords = {
+            'technology': ['tech', 'digital', 'innovation', 'future', 'smart', 'ai', 'app'],
+            'lifestyle': ['life', 'home', 'family', 'comfort', 'relax', 'peace'],
+            'business': ['business', 'corporate', 'professional', 'career', 'success', 'growth'],
+            'creative': ['creative', 'design', 'art', 'music', 'color', 'inspire'],
+            'food': ['food', 'restaurant', 'delicious', 'taste', 'cook', 'recipe'],
+            'fitness': ['fitness', 'health', 'workout', 'gym', 'exercise', 'strong']
+        }
+
+        theme = "Modern and professional"
+        for theme_name, keywords in theme_keywords.items():
+            if any(keyword in text_lower for keyword in keywords):
+                theme = f"Professional {theme_name} theme"
+                break
+
+        # Determine color scheme
+        colors = "Professional blue and white palette"
+        if 'creative' in theme or 'art' in text_lower:
+            colors = "Vibrant and creative color palette"
+        elif 'business' in theme:
+            colors = "Corporate blue and gray palette"
+        elif 'food' in text_lower:
+            colors = "Warm, appetizing colors"
+
+        # Determine layout style
+        layout = "Clean, modern layout with clear visual hierarchy"
+        if 'tech' in theme or 'innovation' in text_lower:
+            layout = "Modern, tech-focused layout with clean lines"
+
+        return {
+            'theme': theme,
+            'colors': colors,
+            'layout': layout
+        }
 
 class VideoScriptwriterAgent(BaseAgent):
     """Develops video narratives and scene descriptions"""

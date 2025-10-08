@@ -134,16 +134,41 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
       <section className="how-it-works" id="how">
         <div className="container">
           <h2 className="section-title">How It Works</h2>
-          <div className="video-container">
-            <iframe 
-              width="100%"
-              height="500"
-              src="https://www.youtube.com/embed/4_i3H8mvVZk?autoplay=0&showinfo=0&controls=1"
-              title="AgenticAds Demo"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen>
-            </iframe> 
+          <div className="videos-grid">
+            <div className="video-block">
+              <div className="video-header">
+                <h3>For Tech Guys</h3>
+                <p>Deep dive into the technical implementation details</p>
+              </div>
+              <div className="video-container">
+                <iframe
+                  width="100%"
+                  height="400"
+                  src="https://www.youtube.com/embed/4_i3H8mvVZk?autoplay=0&showinfo=0&controls=1"
+                  title="AgenticAds Technical Demo"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen>
+                </iframe>
+              </div>
+            </div>
+            <div className="video-block">
+              <div className="video-header">
+                <h3>For Non-Tech Users</h3>
+                <p>Simple walkthrough of how to use AgenticAds effectively</p>
+              </div>
+              <div className="video-container">
+                <iframe
+                  width="100%"
+                  height="400"
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&showinfo=0&controls=1"
+                  title="AgenticAds User Demo"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen>
+                </iframe>
+              </div>
+            </div>
           </div>
         </div>
       </section>

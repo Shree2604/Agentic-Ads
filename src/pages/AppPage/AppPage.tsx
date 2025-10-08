@@ -239,7 +239,6 @@ export const AppPage: React.FC<AppPageProps> = ({
                     <div className="result-content">
                       <div className="poster-display">
                         <PosterImage url={result.poster_url} />
-                        <p className="poster-ready">✅ Poster ready for download</p>
                       </div>
                     </div>
                   </div>
