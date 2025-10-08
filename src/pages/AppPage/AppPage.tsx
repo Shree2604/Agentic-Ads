@@ -4,6 +4,51 @@ import { Button } from '@/components/ui/Button';
 import { FormData, GenerationResult, OutputType, Platform, Tone } from '@/types';
 import './AppPage.css';
 
+interface PosterImageProps {
+  url: string;
+}
+
+const PosterImage: React.FC<PosterImageProps> = ({ url }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const [imageLoading, setImageLoading] = React.useState(true);
+
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoading(false);
+  };
+
+  const handleImageLoad = () => {
+    setImageLoading(false);
+  };
+
+  if (imageError) {
+    return (
+      <div className="poster-unavailable">
+        <Image size={16} />
+        <p>Preview Unavailable</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {imageLoading && (
+        <div className="poster-loading">
+          <div className="spinner"></div>
+          <p>Loading preview...</p>
+        </div>
+      )}
+      <img
+        src={url}
+        alt="Generated Poster"
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        style={{ display: imageLoading ? 'none' : 'block' }}
+      />
+    </>
+  );
+};
+
 interface AppPageProps {
   formData: FormData;
   setFormData: (data: FormData) => void;
@@ -152,16 +197,15 @@ export const AppPage: React.FC<AppPageProps> = ({
                 <p>Our AI agents are working their magic</p>
               </div>
             )}
-
             {result && !generating && (
               <div className="results-card">
                 
                 
-                {formData.outputs.includes('text') && (
+                {formData.outputs.includes('text') && result.rewrittenText && (
                   <div className="result-item">
                     <div className="result-header">
                       <Type size={20} />
-                      <span>Rewritten Text</span>
+                      <span>Generated Text</span>
                       <Button
                         variant="outline"
                         onClick={() => onActionClick('copy')}
@@ -173,11 +217,12 @@ export const AppPage: React.FC<AppPageProps> = ({
                     </div>
                     <div className="result-content">
                       <p>{result.rewrittenText}</p>
+                      <p className="text-ready">✅ Text ready for use</p>
                     </div>
                   </div>
                 )}
 
-                {formData.outputs.includes('poster') && (
+                {formData.outputs.includes('poster') && result.poster_url && (
                   <div className="result-item">
                     <div className="result-header">
                       <Image size={20} />
@@ -192,7 +237,10 @@ export const AppPage: React.FC<AppPageProps> = ({
                       </Button>
                     </div>
                     <div className="result-content">
-                      <img src={result.posterUrl} alt="Generated Poster" />
+                      <div className="poster-display">
+                        <PosterImage url={result.poster_url} />
+                        <p className="poster-ready">✅ Poster ready for download</p>
+                      </div>
                     </div>
                   </div>
                 )}

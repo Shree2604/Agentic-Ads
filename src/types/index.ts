@@ -3,7 +3,6 @@ export interface FormData {
   tone: string;
   platform: string;
   outputs: string[];
-  logoPosition: string;
   logo?: File;
   brandGuidelines?: string;
 }
@@ -11,6 +10,7 @@ export interface FormData {
 export interface GenerationResult {
   rewrittenText: string;
   posterUrl: string;
+  poster_url?: string; // For base64 encoded poster image
   videoUrl: string;
   qualityScores?: Record<string, number>;
   validationFeedback?: Record<string, string>;

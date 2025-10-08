@@ -27,6 +27,10 @@ class GenerationState(TypedDict):
     brand_guidelines: Optional[str]
     output_types: List[str]
 
+    # Logo integration
+    logo_data: Optional[bytes]
+    logo_position: str
+
     # Research phase
     research_context: List[str]
     research_summary: str
@@ -34,6 +38,11 @@ class GenerationState(TypedDict):
     # Generation phase
     generated_text: str
     poster_prompt: str
+    poster_url: Optional[str]  # Download URL for generated poster
+    poster_file_path: Optional[str]
+    poster_filename: Optional[str]
+    poster_generation_notes: Optional[str]
+    poster_error: Optional[str]
     video_script: str
 
     # Agent notes
@@ -195,7 +204,14 @@ class GenerationGraph:
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
                 vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
-                embedding_model=embedding_model
+                embedding_model=embedding_model,
+                feedback_summary=state.get("feedback_summary"),
+                feedback_highlights=state.get("feedback_highlights"),
+                feedback_suggestions=state.get("feedback_suggestions"),
+                feedback_keywords=state.get("feedback_keywords"),
+                feedback_avg_rating=state.get("feedback_avg_rating"),
+                logo_data=state.get("logo_data"),
+                logo_position=state.get("logo_position", "top-right")
             )
 
             designer = VisualDesignerAgent(context)
@@ -351,10 +367,17 @@ class GenerationGraph:
                 "tone": initial_state.get("tone", ""),
                 "brand_guidelines": initial_state.get("brand_guidelines"),
                 "output_types": initial_state.get("output_types", []),
+                "logo_data": initial_state.get("logo_data"),
+                "logo_position": initial_state.get("logo_position", "top-right"),
                 "research_context": initial_state.get("research_context", []),
                 "research_summary": initial_state.get("research_summary", ""),
                 "generated_text": initial_state.get("generated_text", ""),
                 "poster_prompt": initial_state.get("poster_prompt", ""),
+                "poster_url": initial_state.get("poster_url"),
+                "poster_file_path": initial_state.get("poster_file_path"),
+                "poster_filename": initial_state.get("poster_filename"),
+                "poster_generation_notes": initial_state.get("poster_generation_notes"),
+                "poster_error": initial_state.get("poster_error"),
                 "video_script": initial_state.get("video_script", ""),
                 "copywriter_notes": initial_state.get("copywriter_notes", ""),
                 "visual_designer_notes": initial_state.get("visual_designer_notes", ""),
@@ -396,7 +419,9 @@ async def run_generation_workflow(
     output_types: List[str],
     brand_guidelines: Optional[str] = None,
     feedback_insights: Optional[Dict[str, Any]] = None,
-    model_name: str = "microsoft/DialoGPT-medium"
+    model_name: str = "microsoft/DialoGPT-medium",
+    logo_data: Optional[bytes] = None,
+    logo_position: str = "top-right"
 ) -> Dict[str, Any]:
     """Run the complete generation workflow"""
 
@@ -424,10 +449,17 @@ async def run_generation_workflow(
         "tone": tone,
         "brand_guidelines": brand_guidelines,
         "output_types": output_types,
+        "logo_data": logo_data,
+        "logo_position": logo_position,
         "research_context": [],
         "research_summary": "",
         "generated_text": "",
         "poster_prompt": "",
+        "poster_url": None,
+        "poster_file_path": None,
+        "poster_filename": None,
+        "poster_generation_notes": None,
+        "poster_error": None,
         "video_script": "",
         "copywriter_notes": "",
         "visual_designer_notes": "",
@@ -451,12 +483,22 @@ async def run_generation_workflow(
     final_text = result.get("final_text", result.get("generated_text", ""))
     final_poster = result.get("final_poster_prompt", result.get("poster_prompt", ""))
     final_video = result.get("final_video_script", result.get("video_script", ""))
+    final_poster_url = result.get("poster_url")
 
-    print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: '{final_poster[:30]}...', Video: '{final_video[:30]}...'")
+    # Only print completion when both text and poster are requested and completed
+    output_types = result.get("output_types", [])
+    if "text" in output_types and "poster" in output_types:
+        if final_text and final_poster_url:  # Both text and poster URL exist
+            print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: Generated successfully, Video: '{final_video[:30]}...'")
+        else:
+            print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: Failed, Video: '{final_video[:30]}...'")
+    else:
+        print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: '{final_poster[:30]}...', Video: '{final_video[:30]}...'")
 
     return {
         "text": final_text,
         "poster_prompt": final_poster,
+        "poster_url": final_poster_url,
         "video_script": final_video,
         "quality_scores": result.get("quality_scores", {}),
         "validation_feedback": result.get("validation_feedback", {}),

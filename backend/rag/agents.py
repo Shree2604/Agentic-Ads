@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import chromadb
 from sentence_transformers import SentenceTransformer
 from .text_generation import get_text_generator
+from .poster_generation import PosterGenerationAgent, PosterGenerationContext
 
 @dataclass
 class AgentContext:
@@ -24,6 +25,8 @@ class AgentContext:
     feedback_suggestions: Optional[List[str]] = None
     feedback_keywords: Optional[List[str]] = None
     feedback_avg_rating: Optional[float] = None
+    logo_data: Optional[bytes] = None
+    logo_position: str = "top-right"
 
 class BaseAgent:
     """Base class for all agents"""
@@ -266,24 +269,32 @@ class CopywriterAgent(BaseAgent):
             return fallback_text
 
 class VisualDesignerAgent(BaseAgent):
-    """Creates poster design prompts with brand consistency"""
+    """Creates poster design prompts and generates actual poster images with logo integration"""
 
     def __init__(self, context: AgentContext):
         super().__init__("VisualDesignerAgent", context)
+        self.poster_agent = None
 
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate poster design prompts"""
+        """Generate poster design prompts and actual poster images"""
         output_types = state.get("output_types", [])
-        
+
+        print(f"VisualDesignerAgent: Starting execution with output_types: {output_types}")
+
         # Skip poster generation if not requested
         if "poster" not in output_types:
+            print("VisualDesignerAgent: Poster generation skipped - not requested")
             return {
                 **state,
                 "poster_prompt": state.get("poster_prompt", ""),
+                "poster_url": state.get("poster_url", ""),
                 "visual_designer_notes": "Poster generation skipped - not requested"
             }
 
+        print("VisualDesignerAgent: Poster generation requested - starting process")
         generated_text = state.get("generated_text", "")
+        logo_data = state.get("logo_data")
+        logo_position = state.get("logo_position", "top-right")
 
         # Research visual design patterns
         visual_queries = [
@@ -304,7 +315,7 @@ class VisualDesignerAgent(BaseAgent):
             visual_inspiration += "\nImprovements requested: " + "; ".join(self.context.feedback_suggestions[:2])
 
         try:
-            # Generate synchronously
+            # Generate poster prompt
             design_prompt = self._generate_poster_prompt_sync(
                 generated_text,
                 visual_inspiration,
@@ -312,16 +323,48 @@ class VisualDesignerAgent(BaseAgent):
                 state.get("feedback_suggestions", [])
             )
 
+            print(f"VisualDesignerAgent: Generated poster prompt: {design_prompt[:100]}...")
+
+            # Initialize poster generation context
+            poster_context = PosterGenerationContext(
+                platform=self.context.platform,
+                tone=self.context.tone,
+                brand_guidelines=self.context.brand_guidelines,
+                input_text=self.context.input_text,
+                poster_prompt=design_prompt,
+                logo_data=self.context.logo_data,  # Use from AgentContext
+                logo_position=self.context.logo_position  # Use from AgentContext
+            )
+
+            # Create poster generation agent
+            self.poster_agent = PosterGenerationAgent(poster_context)
+
+            # Generate the actual poster
+            poster_state = await self.poster_agent.generate_poster({
+                "poster_prompt": design_prompt,  # Make sure this is passed
+                **state
+            })
+
+            print(f"VisualDesignerAgent: Poster generation result: poster_url={poster_state.get('poster_url', 'None')[:50]}...")
+
+            print(f"VisualDesignerAgent: Poster generation completed. URL: {poster_state.get('poster_url', 'None')[:50]}...")
+
             return {
                 **state,
-                "poster_prompt": design_prompt,
-                "visual_designer_notes": f"Created design prompt for {self.context.platform} {self.context.tone} poster"
+                **poster_state,
+                "visual_designer_notes": f"Created design prompt and generated poster for {self.context.platform} {self.context.tone}"
             }
+
         except Exception as e:
+            error_msg = f"Error in poster generation: {str(e)}"
+            print(f"VisualDesignerAgent: {error_msg}")
+            import traceback
+            print(f"VisualDesignerAgent: Traceback: {traceback.format_exc()}")
             return {
                 **state,
                 "poster_prompt": f"Create a {self.context.tone} {self.context.platform} poster featuring: {generated_text[:100]}",
-                "visual_designer_notes": f"Used fallback poster prompt due to error: {str(e)}"
+                "poster_url": "",
+                "visual_designer_notes": f"Poster generation failed: {error_msg}"
             }
 
     def _generate_poster_prompt_sync(
@@ -331,26 +374,45 @@ class VisualDesignerAgent(BaseAgent):
         highlights: List[str],
         suggestions: List[str]
     ) -> str:
-        """Generate poster prompt synchronously"""
+        """Generate poster prompt synchronously with 80/20 input-to-context ratio"""
+
+        # 80% BASED ON USER INPUT TEXT
+        # Extract key elements from user input for the main design focus
+        user_input_focus = text[:200]  # Primary content from user's ad text (80% weight)
+
+        # 20% ENHANCED BY RETRIEVED CONTEXT
+        # Use retrieved context sparingly for visual enhancement
+        context_enhancement = ""
+        if inspiration and len(inspiration.strip()) > 0:
+            # Extract only key visual cues (20% weight)
+            context_lines = inspiration.strip().split('\n')[:2]  # Limit to 2 lines max
+            context_enhancement = " ".join(context_lines)[:100]  # Limit to 100 chars
+
         improvement_line = (
-            "Incorporate feedback: " + "; ".join(suggestions[:2])
-        ) if suggestions else "Ensure the design resonates with recent audience preferences."
+            "Consider user feedback: " + "; ".join(suggestions[:1])  # Only 1 suggestion
+        ) if suggestions else ""
 
         highlight_line = (
-            "Celebrate wins: " + "; ".join(highlights[:2])
-        ) if highlights else "Emphasize the core value proposition confidently."
+            "Highlight: " + "; ".join(highlights[:1])  # Only 1 highlight
+        ) if highlights else ""
 
-        return (
-            f"Create a professional {self.context.platform} poster with:\n"
-            f"- {self.context.tone} tone\n"
-            f"- Modern, clean design\n"
-            f"- Featured text: {text[:150]}\n"
-            f"- Brand colors and typography\n"
-            f"- Eye-catching visual elements\n"
-            f"- {highlight_line}\n"
-            f"- {improvement_line}\n"
-            f"Inspiration cues:\n{inspiration.strip()}"
-        )
+        # Construct prompt with explicit 80/20 ratio
+        prompt_parts = [
+            f"Create a professional {self.context.platform} poster with:",
+            f"- {self.context.tone} tone and professional design",
+            f"- PRIMARY CONTENT (80% focus): {user_input_focus}",  # 80% user input
+            f"- VISUAL ENHANCEMENT (20% inspiration): {context_enhancement}",  # 20% context
+            f"- Platform-optimized layout for {self.context.platform}",
+            f"- Clean typography and strong visual hierarchy"
+        ]
+
+        # Add feedback elements only if they enhance the core message (keep minimal)
+        if improvement_line:
+            prompt_parts.append(f"- {improvement_line}")
+        if highlight_line:
+            prompt_parts.append(f"- {highlight_line}")
+
+        return "\n".join(prompt_parts)
 
 class VideoScriptwriterAgent(BaseAgent):
     """Develops video narratives and scene descriptions"""

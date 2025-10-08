@@ -1,15 +1,22 @@
-from fastapi import FastAPI, HTTPException, Depends, APIRouter
+from fastapi import FastAPI, HTTPException, Depends, APIRouter, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import Response, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union, Dict, Any
 from datetime import datetime, timedelta
-from contextlib import asynccontextmanager  # ADD THIS IMPORT
+from contextlib import asynccontextmanager
 import os
 import secrets
+import base64
+import asyncio
+import tempfile
+from pathlib import Path
+import aiofiles
+import mimetypes
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -90,10 +97,13 @@ class RAGGenerationRequest(BaseModel):
     ad_text: str
     outputs: List[str]
     brand_guidelines: Optional[str] = None
+    logo_data: Optional[str] = None  # Base64 encoded logo image
+    logo_position: str = "top-right"  # top-left, top-right, bottom-left, bottom-right, center
 
 class RAGGenerationResponse(BaseModel):
     text: str
     poster_prompt: str
+    poster_url: Optional[str] = None  # Base64 encoded poster image
     video_script: str
     quality_scores: Dict[str, float]
     validation_feedback: Dict[str, str]
@@ -192,47 +202,56 @@ async def login(login_request: LoginRequest):
     return Token(access_token=access_token, token_type="bearer")
 
 @app.get("/api/generation-history", response_model=List[GenerationHistory])
-async def get_generation_history(_: str = Depends(get_current_admin)):
+async def get_generation_history():
     """Get all generation history records"""
     try:
         collection = db.generation_history
         results = await collection.find().to_list(length=None)
+        print(f"✅ Retrieved {len(results)} generation history entries")
         return [GenerationHistory(**doc) for doc in results]
     except Exception as e:
+        print(f"❌ Failed to retrieve generation history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generation-history", response_model=GenerationHistory)
-async def create_generation_history(generation: GenerationHistory, _: str = Depends(get_current_admin)):
+async def create_generation_history(generation: GenerationHistory):
     """Create a new generation history record"""
     try:
         collection = db.generation_history
         result = await collection.insert_one(generation.dict())
+        print(f"✅ Generation history saved: ID={generation.id}, Platform={generation.platform}, Status={generation.status}, Date={generation.date}, Time={generation.time}")
         return generation
     except Exception as e:
+        print(f"❌ Failed to save generation history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/feedback", response_model=List[FeedbackItem])
-async def get_feedback(_: str = Depends(get_current_admin)):
+async def get_feedback():
     """Get all feedback records"""
     try:
         collection = db.feedback
         results = await collection.find().to_list(length=None)
+        print(f"✅ Retrieved {len(results)} feedback entries")
         return [FeedbackItem(**doc) for doc in results]
     except Exception as e:
+        print(f"❌ Failed to retrieve feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/feedback", response_model=FeedbackItem)
-async def create_feedback(feedback: FeedbackItem, _: str = Depends(get_current_admin)):
+async def create_feedback(feedback: FeedbackItem):
     """Create a new feedback record"""
     try:
         collection = db.feedback
         result = await collection.insert_one(feedback.dict())
+        print(f"✅ Feedback saved: Email={feedback.email}, Action={feedback.action}, Rating={feedback.rating}, Date={feedback.date}, Platform={feedback.platform}")
         return feedback
     except Exception as e:
+        print(f"❌ Failed to save feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/dashboard/stats", response_model=DashboardStats)
-async def get_dashboard_stats(_: str = Depends(get_current_admin)):
+async def get_dashboard_stats():
     """Get dashboard statistics"""
     try:
         # Get generation history
@@ -262,7 +281,7 @@ async def get_dashboard_stats(_: str = Depends(get_current_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/dashboard/charts", response_model=ChartData)
-async def get_chart_data(_: str = Depends(get_current_admin)):
+async def get_chart_data():
     """Get chart data for platform and tone statistics"""
     try:
         collection = db.generation_history
@@ -310,19 +329,35 @@ if RAG_AVAILABLE:
                 tone=request.tone
             )
 
-            # Run generation workflow
+            # Convert logo data from base64 to bytes if provided
+            logo_bytes = None
+            if request.logo_data:
+                try:
+                    # Clean the base64 data (remove data:image/jpeg;base64, prefix if present)
+                    clean_base64 = request.logo_data.replace('data:image/jpeg;base64,', '').replace('data:image/png;base64,', '')
+                    logo_bytes = base64.b64decode(clean_base64)
+                    print(f"✅ Logo data decoded successfully, size: {len(logo_bytes)} bytes")
+                except Exception as e:
+                    print(f"⚠️ Failed to decode logo data: {str(e)}")
+                    print(f"⚠️ Logo data received: {request.logo_data[:50]}...")
+                    logo_bytes = None
+
+            # Run generation workflow with logo support
             result = await run_generation_workflow(
                 input_text=request.ad_text,
                 platform=request.platform,
                 tone=request.tone,
                 output_types=request.outputs,
                 brand_guidelines=request.brand_guidelines,
-                feedback_insights=feedback_insights
+                feedback_insights=feedback_insights,
+                logo_data=logo_bytes,
+                logo_position=request.logo_position
             )
 
             return RAGGenerationResponse(
                 text=result.get("text", f"🚀 {request.ad_text}"),
                 poster_prompt=result.get("poster_prompt", f"Create a {request.tone} poster for {request.platform}"),
+                poster_url=result.get("poster_url"),  # New poster URL field
                 video_script=result.get("video_script", f"Video script for {request.ad_text}"),
                 quality_scores=result.get("quality_scores", {"text": 8.0, "poster": 7.0, "video": 7.0}),
                 validation_feedback=result.get("validation_feedback", {
@@ -340,6 +375,7 @@ if RAG_AVAILABLE:
             return RAGGenerationResponse(
                 text=f"🚀 {request.ad_text}\n\n#{request.platform.lower()} #advertisement",
                 poster_prompt=f"Create a {request.tone} poster for {request.platform} featuring: {request.ad_text}",
+                poster_url=None,
                 video_script=f"SCENE 1: Show product/service\nNARRATION: {request.ad_text}\n\nSCENE 2: Call to action\nNARRATION: Visit us today!",
                 quality_scores={"text": 8.0, "poster": 7.0, "video": 7.0},
                 validation_feedback={
@@ -395,6 +431,81 @@ if RAG_AVAILABLE:
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
+
+    @app.get("/api/posters/download/{filename}")
+    async def download_poster(filename: str):
+        """Download a generated poster file"""
+        print(f"📥 Download request for: {filename}")
+        try:
+            # Construct file path
+            temp_dir = Path(tempfile.gettempdir()) / "agentic_ads_posters"
+            file_path = temp_dir / filename
+
+            print(f"📥 System temp dir: {tempfile.gettempdir()}")
+            print(f"📥 Poster temp dir: {temp_dir}")
+            print(f"📥 Poster temp dir absolute: {temp_dir.absolute()}")
+            print(f"📥 Looking for file at: {file_path}")
+            print(f"📥 Temp dir exists: {temp_dir.exists()}")
+            print(f"📥 File exists: {file_path.exists()}")
+
+            # Check if file exists
+            if not file_path.exists():
+                print(f"❌ File not found: {file_path}")
+                print(f"❌ Available files in temp dir: {list(temp_dir.glob('*')) if temp_dir.exists() else 'No temp dir'}")
+                raise HTTPException(status_code=404, detail="Poster file not found")
+
+            # Get file size
+            file_size = file_path.stat().st_size
+            print(f"📥 File size: {file_size} bytes")
+
+            # Determine content type
+            content_type, _ = mimetypes.guess_type(str(file_path))
+            if not content_type:
+                content_type = "application/octet-stream"
+
+            print(f"📥 Content type: {content_type}")
+
+            # Read file content
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+
+            print(f"📥 Read {len(file_content)} bytes from file")
+
+            # Schedule file deletion after 2 minutes (using asyncio.create_task instead of background)
+            async def cleanup_file():
+                try:
+                    await asyncio.sleep(120)  # Wait 2 minutes
+                    if file_path.exists():
+                        file_path.unlink()
+                        print(f"🗑️ Cleaned up poster file after 2 minutes: {file_path}")
+                except Exception as e:
+                    print(f"⚠️ Failed to cleanup poster file {file_path}: {e}")
+
+            # Start cleanup task in background
+            asyncio.create_task(cleanup_file())
+
+            # Return file for download
+            def iter_file():
+                with open(file_path, "rb") as f:
+                    while chunk := f.read(8192):  # Read in chunks
+                        yield chunk
+
+            response = StreamingResponse(
+                iter_file(),
+                media_type=content_type,
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+
+            print(f"✅ Streaming response prepared for: {filename}")
+            return response
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ Download error for {filename}: {str(e)}")
+            import traceback
+            print(f"❌ Download traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Download error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

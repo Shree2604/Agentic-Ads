@@ -8,6 +8,16 @@ export const useApiData = (token: string | null) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const publicFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response;
+  }, []);
+
   const authorizedFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
     if (!token) {
       throw new Error('Unauthorized');
@@ -35,10 +45,10 @@ export const useApiData = (token: string | null) => {
     return response;
   }, [token]);
 
-  // Fetch generation history
+  // Fetch generation history (public endpoint)
   const fetchGenerationHistory = useCallback(async () => {
     try {
-      const response = await authorizedFetch('/generation-history');
+      const response = await publicFetch('/generation-history');
       const data = await response.json();
       setGenerationHistory(data);
     } catch (err) {
@@ -48,12 +58,12 @@ export const useApiData = (token: string | null) => {
       }
       throw err;
     }
-  }, [authorizedFetch]);
+  }, [publicFetch]);
 
-  // Fetch feedback list
+  // Fetch feedback list (public endpoint)
   const fetchFeedbackList = useCallback(async () => {
     try {
-      const response = await authorizedFetch('/feedback');
+      const response = await publicFetch('/feedback');
       const data = await response.json();
       setFeedbackList(data);
     } catch (err) {
@@ -63,14 +73,14 @@ export const useApiData = (token: string | null) => {
       }
       throw err;
     }
-  }, [authorizedFetch]);
+  }, [publicFetch]);
 
-  // Add new generation history
+  // Add new generation history (public endpoint)
   const addGenerationHistory = async (generation: Omit<GenerationHistory, 'id'>) => {
     try {
       const newId = Math.max(...generationHistory.map(g => g.id), 0) + 1;
       const generationWithId = { ...generation, id: newId };
-      await authorizedFetch('/generation-history', {
+      await publicFetch('/generation-history', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,13 +96,13 @@ export const useApiData = (token: string | null) => {
     }
   };
 
-  // Add new feedback
+  // Add new feedback (public endpoint)
   const addFeedback = async (feedback: Omit<FeedbackItem, 'id'>) => {
     try {
       const newId = Math.max(...feedbackList.map(f => f.id), 0) + 1;
       const feedbackWithId = { ...feedback, id: newId };
 
-      await authorizedFetch('/feedback', {
+      await publicFetch('/feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,16 +118,9 @@ export const useApiData = (token: string | null) => {
     }
   };
 
-  // Fetch all data on mount
+  // Fetch all data on mount (public endpoints don't need token)
   useEffect(() => {
     const fetchData = async () => {
-      if (!token) {
-        setGenerationHistory([]);
-        setFeedbackList([]);
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       setError(null);
 
@@ -131,17 +134,10 @@ export const useApiData = (token: string | null) => {
     };
 
     fetchData();
-  }, [token, fetchGenerationHistory, fetchFeedbackList]);
+  }, [fetchGenerationHistory, fetchFeedbackList]);
 
-  // Refresh data
+  // Refresh data (public endpoints don't need token)
   const refreshData = async () => {
-    if (!token) {
-      setGenerationHistory([]);
-      setFeedbackList([]);
-      setError('Unauthorized');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
