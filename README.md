@@ -10,7 +10,6 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
     <a href="https://www.youtube.com/watch?v=4_i3H8mvVZk" target="_blank" style="display: block;">
       <img src="https://img.youtube.com/vi/4_i3H8mvVZk/maxresdefault.jpg" alt="Technical Demo" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease;">
     </a>
-    <p style="text-align: center; margin-top: 12px; color: #666; font-size: 0.9em;">Click to watch on YouTube</p>
   </div>
   
   <div style="flex: 0 0 500px; min-width: 0;">
@@ -18,21 +17,9 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
     <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" style="display: block;">
       <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" alt="User Demo" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease;">
     </a>
-    <p style="text-align: center; margin-top: 12px; color: #666; font-size: 0.9em;">Click to watch on YouTube</p>
   </div>
 </div>
 
-<style>
-  @media (max-width: 1200px) {
-    .demo-container {
-      flex-direction: column;
-      align-items: center;
-    }
-    .demo-video {
-      margin-bottom: 30px;
-    }
-  }
-</style>
 
 ## 🚀 Features
 
