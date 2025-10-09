@@ -316,6 +316,21 @@
   border-bottom: 1px solid var(--border);
 }
 
+.result-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.result-filename {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
 .result-header span {
   display: flex;
   align-items: center;
@@ -352,6 +367,51 @@
   padding: 3rem;
   background: var(--surface);
   border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.video-note {
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.video-preview-wrapper {
+  display: flex;
+  justify-content: center;
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.video-preview {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.video-script {
+  margin-top: 1.5rem;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  padding: 1rem;
+}
+
+.video-script h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.video-script pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
   color: var(--text-secondary);
 }
 

@@ -118,7 +118,7 @@ export const AppPage: React.FC<AppPageProps> = ({
                   placeholder="Enter your ad text here..."
                   value={formData.adText}
                   onChange={(e) => setFormData({...formData, adText: e.target.value})}
-                  rows={5}
+                  rows={10}
                 />
               </div>
 
@@ -204,8 +204,10 @@ export const AppPage: React.FC<AppPageProps> = ({
                 {formData.outputs.includes('text') && result.rewrittenText && (
                   <div className="result-item">
                     <div className="result-header">
-                      <Type size={20} />
-                      <span>Generated Text</span>
+                      <div className="result-header-left">
+                        <Type size={20} />
+                        <span>Generated Text</span>
+                      </div>
                       <Button
                         variant="outline"
                         onClick={() => onActionClick('copy')}
@@ -225,8 +227,10 @@ export const AppPage: React.FC<AppPageProps> = ({
                 {formData.outputs.includes('poster') && result.poster_url && (
                   <div className="result-item">
                     <div className="result-header">
-                      <Image size={20} />
-                      <span>Generated Poster</span>
+                      <div className="result-header-left">
+                        <Image size={20} />
+                        <span>Generated Poster</span>
+                      </div>
                       <Button
                         variant="outline"
                         onClick={() => onActionClick('download-poster')}
@@ -247,22 +251,25 @@ export const AppPage: React.FC<AppPageProps> = ({
                 {formData.outputs.includes('video') && (
                   <div className="result-item">
                     <div className="result-header">
-                      <Video size={20} />
-                      <span>Generated Video</span>
+                      <div className="result-header-left">
+                        <Video size={20} />
+                        <span>Generated Video</span>
+                      </div>
                       <Button
                         variant="outline"
                         onClick={() => onActionClick('download-video')}
                         className="action-button"
+                        disabled={!result.videoUrl}
                       >
                         <Download size={16} />
                         Download
                       </Button>
                     </div>
                     <div className="result-content">
-                      <div className="video-placeholder">
-                        <Video size={48} />
-                        <p>Video Preview</p>
-                      </div>
+                        <div className="video-placeholder">
+                          <Video size={20} />
+                          <p style={{color:'black'}}>Video preview unavailable</p>
+                        </div>                      
                     </div>
                   </div>
                 )}

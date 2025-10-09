@@ -104,6 +104,8 @@ class RAGGenerationResponse(BaseModel):
     poster_prompt: str
     poster_url: Optional[str] = None  # Base64 encoded poster image
     video_script: str
+    video_gif_url: Optional[str] = None
+    video_gif_filename: Optional[str] = None
     quality_scores: Dict[str, float]
     validation_feedback: Dict[str, str]
     errors: List[str]
@@ -217,7 +219,7 @@ async def create_generation_history(generation: GenerationHistory):
     """Create a new generation history record"""
     try:
         collection = db.generation_history
-        result = await collection.insert_one(generation.dict())
+        result = await collection.insert_one(generation.model_dump())
         print(f"✅ Generation history saved: ID={generation.id}, Platform={generation.platform}, Status={generation.status}, Date={generation.date}, Time={generation.time}")
         return generation
     except Exception as e:
@@ -242,7 +244,7 @@ async def create_feedback(feedback: FeedbackItem):
     """Create a new feedback record"""
     try:
         collection = db.feedback
-        result = await collection.insert_one(feedback.dict())
+        result = await collection.insert_one(feedback.model_dump())
         print(f"✅ Feedback saved: Email={feedback.email}, Action={feedback.action}, Rating={feedback.rating}, Date={feedback.date}, Platform={feedback.platform}")
         return feedback
     except Exception as e:
@@ -346,6 +348,8 @@ if RAG_AVAILABLE:
                 poster_prompt=result.get("poster_prompt", f"Create a {request.tone} poster for {request.platform}"),
                 poster_url=result.get("poster_url"),  # New poster URL field
                 video_script=result.get("video_script", f"Video script for {request.ad_text}"),
+                video_gif_url=result.get("video_gif_url"),
+                video_gif_filename=result.get("video_gif_filename"),
                 quality_scores=result.get("quality_scores", {"text": 8.0, "poster": 7.0, "video": 7.0}),
                 validation_feedback=result.get("validation_feedback", {
                     "text_feedback": "Generated successfully",
@@ -364,6 +368,8 @@ if RAG_AVAILABLE:
                 poster_prompt=f"Create a {request.tone} poster for {request.platform} featuring: {request.ad_text}",
                 poster_url=None,
                 video_script=f"SCENE 1: Show product/service\nNARRATION: {request.ad_text}\n\nSCENE 2: Call to action\nNARRATION: Visit us today!",
+                video_gif_url=None,
+                video_gif_filename=None,
                 quality_scores={"text": 8.0, "poster": 7.0, "video": 7.0},
                 validation_feedback={
                     "text_feedback": "Generated with fallback system due to error",
@@ -424,6 +430,8 @@ if RAG_AVAILABLE:
                 poster_prompt=result.get("poster_prompt", f"Create a {tone} poster for {platform}"),
                 poster_url=result.get("poster_url"),  # Poster URL with logo integrated
                 video_script=result.get("video_script", f"Video script for {ad_text}"),
+                video_gif_url=result.get("video_gif_url"),
+                video_gif_filename=result.get("video_gif_filename"),
                 quality_scores=result.get("quality_scores", {"text": 8.0, "poster": 7.0, "video": 7.0}),
                 validation_feedback=result.get("validation_feedback", {
                     "text_feedback": "Generated successfully with logo integration",
@@ -444,6 +452,8 @@ if RAG_AVAILABLE:
                 poster_prompt=f"Create a {tone} poster for {platform} featuring: {ad_text}",
                 poster_url=None,
                 video_script=f"SCENE 1: Show product/service\nNARRATION: {ad_text}\n\nSCENE 2: Call to action\nNARRATION: Visit us today!",
+                video_gif_url=None,
+                video_gif_filename=None,
                 quality_scores={"text": 8.0, "poster": 7.0, "video": 7.0},
                 validation_feedback={
                     "text_feedback": "Generated with fallback system due to error",
@@ -499,80 +509,127 @@ if RAG_AVAILABLE:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
 
-    @app.get("/api/posters/download/{filename}")
-    async def download_poster(filename: str):
-        """Download a generated poster file"""
-        print(f"📥 Download request for: {filename}")
-        try:
-            # Construct file path
-            temp_dir = Path(tempfile.gettempdir()) / "agentic_ads_posters"
-            file_path = temp_dir / filename
+@app.get("/api/videos/download/{filename}")
+async def download_video(filename: str):
+    """Download a generated video GIF file"""
+    print(f"📥 Video download request for: {filename}")
+    try:
+        temp_dir = Path(tempfile.gettempdir()) / "agentic_ads_videos"
+        file_path = temp_dir / filename
 
-            print(f"📥 System temp dir: {tempfile.gettempdir()}")
-            print(f"📥 Poster temp dir: {temp_dir}")
-            print(f"📥 Poster temp dir absolute: {temp_dir.absolute()}")
-            print(f"📥 Looking for file at: {file_path}")
-            print(f"📥 Temp dir exists: {temp_dir.exists()}")
-            print(f"📥 File exists: {file_path.exists()}")
+        print(f"📥 Video temp dir: {temp_dir}")
+        print(f"📥 Looking for video file at: {file_path}")
+        print(f"📥 Temp dir exists: {temp_dir.exists()}")
+        print(f"📥 File exists: {file_path.exists()}")
 
-            # Check if file exists
-            if not file_path.exists():
-                print(f"❌ File not found: {file_path}")
-                print(f"❌ Available files in temp dir: {list(temp_dir.glob('*')) if temp_dir.exists() else 'No temp dir'}")
-                raise HTTPException(status_code=404, detail="Poster file not found")
+        if not file_path.exists():
+            print(f"❌ Video file not found: {file_path}")
+            available = list(temp_dir.glob("*")) if temp_dir.exists() else []
+            print(f"❌ Available video files: {available}")
+            raise HTTPException(status_code=404, detail="Video file not found")
 
-            # Get file size
-            file_size = file_path.stat().st_size
-            print(f"📥 File size: {file_size} bytes")
+        file_size = file_path.stat().st_size
+        print(f"📥 Video file size: {file_size} bytes")
 
-            # Determine content type
-            content_type, _ = mimetypes.guess_type(str(file_path))
-            if not content_type:
-                content_type = "application/octet-stream"
+        content_type, _ = mimetypes.guess_type(str(file_path))
+        if not content_type:
+            content_type = "image/gif"
 
-            print(f"📥 Content type: {content_type}")
+        print(f"📥 Video content type: {content_type}")
 
-            # Read file content
+        async def cleanup_file():
+            try:
+                await asyncio.sleep(120)
+                if file_path.exists():
+                    file_path.unlink()
+                    print(f"🗑️ Cleaned up video file after 2 minutes: {file_path}")
+            except Exception as exc:
+                print(f"⚠️ Failed to cleanup video file {file_path}: {exc}")
+
+        asyncio.create_task(cleanup_file())
+
+        def iter_file():
             with open(file_path, "rb") as f:
-                file_content = f.read()
+                while chunk := f.read(8192):
+                    yield chunk
 
-            print(f"📥 Read {len(file_content)} bytes from file")
+        response = StreamingResponse(
+            iter_file(),
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
 
-            # Schedule file deletion after 2 minutes (using asyncio.create_task instead of background)
-            async def cleanup_file():
-                try:
-                    await asyncio.sleep(120)  # Wait 2 minutes
-                    if file_path.exists():
-                        file_path.unlink()
-                        print(f"🗑️ Cleaned up poster file after 2 minutes: {file_path}")
-                except Exception as e:
-                    print(f"⚠️ Failed to cleanup poster file {file_path}: {e}")
+        print(f"✅ Streaming video response prepared for: {filename}")
+        return response
 
-            # Start cleanup task in background
-            asyncio.create_task(cleanup_file())
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Video download error for {filename}: {str(e)}")
+        import traceback
+        print(f"❌ Video download traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Video download error: {str(e)}")
 
-            # Return file for download
-            def iter_file():
-                with open(file_path, "rb") as f:
-                    while chunk := f.read(8192):  # Read in chunks
-                        yield chunk
+@app.get("/api/posters/download/{filename}")
+async def download_poster(filename: str):
+    """Download a generated poster image file"""
+    print(f"📥 Poster download request for: {filename}")
+    try:
+        temp_dir = Path(tempfile.gettempdir()) / "agentic_ads_posters"
+        file_path = temp_dir / filename
 
-            response = StreamingResponse(
-                iter_file(),
-                media_type=content_type,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
-            )
+        print(f"📥 Poster temp dir: {temp_dir}")
+        print(f"📥 Looking for poster file at: {file_path}")
+        print(f"📥 Temp dir exists: {temp_dir.exists()}")
+        print(f"📥 File exists: {file_path.exists()}")
 
-            print(f"✅ Streaming response prepared for: {filename}")
-            return response
+        if not file_path.exists():
+            print(f"❌ Poster file not found: {file_path}")
+            available = list(temp_dir.glob("*")) if temp_dir.exists() else []
+            print(f"❌ Available poster files: {available}")
+            raise HTTPException(status_code=404, detail="Poster file not found")
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            print(f"❌ Download error for {filename}: {str(e)}")
-            import traceback
-            print(f"❌ Download traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Download error: {str(e)}")
+        file_size = file_path.stat().st_size
+        print(f"📥 Poster file size: {file_size} bytes")
+
+        content_type, _ = mimetypes.guess_type(str(file_path))
+        if not content_type:
+            content_type = "image/png"
+
+        print(f"📥 Poster content type: {content_type}")
+
+        async def cleanup_file():
+            try:
+                await asyncio.sleep(300)  # 5 minutes for posters
+                if file_path.exists():
+                    file_path.unlink()
+                    print(f"🗑️ Cleaned up poster file after 5 minutes: {file_path}")
+            except Exception as exc:
+                print(f"⚠️ Failed to cleanup poster file {file_path}: {exc}")
+
+        asyncio.create_task(cleanup_file())
+
+        def iter_file():
+            with open(file_path, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+
+        response = StreamingResponse(
+            iter_file(),
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+        print(f"✅ Streaming poster response prepared for: {filename}")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Poster download error for {filename}: {str(e)}")
+        import traceback
+        print(f"❌ Poster download traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Poster download error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

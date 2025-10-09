@@ -32,7 +32,7 @@ class GenerationState(TypedDict):
     # Logo integration
     logo_data: Optional[bytes]
     logo_position: str
-    logo_file: Optional[Any]  # Uploaded file object from FastAPI
+    logo_file: Optional[Any]
     logo_processed: bool
     logo_id: Optional[str]
     logo_path: Optional[str]
@@ -50,12 +50,18 @@ class GenerationState(TypedDict):
     # Generation phase
     generated_text: str
     poster_prompt: str
-    poster_url: Optional[str]  # Download URL for generated poster
+    poster_url: Optional[str]
     poster_file_path: Optional[str]
     poster_filename: Optional[str]
     poster_generation_notes: Optional[str]
     poster_error: Optional[str]
     video_script: str
+    video_gif_url: Optional[str]
+    video_gif_file_path: Optional[str]
+    video_gif_filename: Optional[str]
+    video_generation_notes: Optional[str]
+    video_error: Optional[str]
+    video_frame_prompts: Optional[List[str]]
 
     # Agent notes
     copywriter_notes: str
@@ -88,12 +94,30 @@ class GenerationGraph:
 
     def __init__(self, model_name: str = "microsoft/DialoGPT-medium"):
         self.model_name = model_name
+        self.vector_store = get_enhanced_vector_store()
+        self.embedding_model = self.vector_store.embedding_model
         self.graph = self._create_graph()
+        
+    def _get_agent_context(self, state: GenerationState) -> AgentContext:
+        """Create a consistent agent context from the current state"""
+        return AgentContext(
+            platform=state["platform"],
+            tone=state["tone"],
+            brand_guidelines=state.get("brand_guidelines"),
+            input_text=state["input"],
+            vector_store=self.vector_store.vector_store,
+            embedding_model=self.embedding_model,
+            feedback_summary=state.get("feedback_summary"),
+            feedback_highlights=state.get("feedback_highlights"),
+            feedback_suggestions=state.get("feedback_suggestions"),
+            feedback_keywords=state.get("feedback_keywords"),
+            feedback_avg_rating=state.get("feedback_avg_rating"),
+            logo_data=state.get("logo_data"),
+            logo_position=state.get("logo_position", "top-right")
+        )
 
     def _create_graph(self) -> StateGraph:
         """Create the main generation graph"""
-
-        # Initialize the graph
         workflow = StateGraph(GenerationState)
 
         # Add nodes (agents)
@@ -105,12 +129,9 @@ class GenerationGraph:
         workflow.add_node("video_generation", self._video_generation_node)
         workflow.add_node("quality_assurance", self._quality_assurance_node)
         workflow.add_node("refinement", self._refinement_node)
-        workflow.add_node("error_handler", self._error_handler_node)
 
-        # Define the flow - Sequential instead of parallel to avoid concurrent updates
+        # Define the flow - Sequential
         workflow.set_entry_point("research")
-
-        # Research -> Text generation -> Logo integration -> Poster generation -> Poster finalization -> Video generation -> Quality assurance
         workflow.add_edge("research", "text_generation")
         workflow.add_edge("text_generation", "logo_integration")
         workflow.add_edge("logo_integration", "poster_generation")
@@ -138,42 +159,15 @@ class GenerationGraph:
             }
         )
 
-        # Remove problematic error handling edges that can cause concurrent updates
-        # workflow.add_edge("research", "error_handler")
-        # workflow.add_edge("text_generation", "error_handler")
-        # workflow.add_edge("poster_generation", "error_handler")
-        # workflow.add_edge("video_generation", "error_handler")
-        # workflow.add_edge("quality_assurance", "error_handler")
-
         return workflow.compile()
 
     def _research_node(self, state: GenerationState) -> GenerationState:
         """Execute content research"""
         try:
-            # Initialize vector store and embedding model
-            vector_store = get_enhanced_vector_store()
-            embedding_model = vector_store.embedding_model
-
-            # Create agent context
-            context = AgentContext(
-                platform=state["platform"],
-                tone=state["tone"],
-                brand_guidelines=state.get("brand_guidelines"),
-                input_text=state["input"],
-                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
-                embedding_model=embedding_model,
-                feedback_summary=state.get("feedback_summary"),
-                feedback_highlights=state.get("feedback_highlights"),
-                feedback_suggestions=state.get("feedback_suggestions"),
-                feedback_keywords=state.get("feedback_keywords"),
-                feedback_avg_rating=state.get("feedback_avg_rating"),
-            )
-
+            context = self._get_agent_context(state)
             researcher = ContentResearcher(context)
             new_state = asyncio.run(researcher.execute(state))
-
             return new_state
-
         except Exception as e:
             return {
                 **state,
@@ -183,24 +177,10 @@ class GenerationGraph:
     def _text_generation_node(self, state: GenerationState) -> GenerationState:
         """Execute text generation"""
         try:
-            # Initialize vector store and embedding model
-            vector_store = get_enhanced_vector_store()
-            embedding_model = vector_store.embedding_model
-
-            context = AgentContext(
-                platform=state["platform"],
-                tone=state["tone"],
-                brand_guidelines=state.get("brand_guidelines"),
-                input_text=state["input"],
-                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
-                embedding_model=embedding_model
-            )
-
+            context = self._get_agent_context(state)
             copywriter = CopywriterAgent(context)
             new_state = asyncio.run(copywriter.execute(state))
-
             return new_state
-
         except Exception as e:
             return {
                 **state,
@@ -211,8 +191,6 @@ class GenerationGraph:
         """Execute logo integration"""
         try:
             print("🎨 Logo Integration Node: Starting logo processing...")
-
-            # Initialize vector store and embedding model
             vector_store = get_enhanced_vector_store()
             embedding_model = vector_store.embedding_model
 
@@ -232,7 +210,6 @@ class GenerationGraph:
 
             print(f"🎨 Logo Integration Node: Completed. Logo processed: {new_state.get('logo_processed', False)}")
             return new_state
-
         except Exception as e:
             print(f"❌ Logo Integration Node: Error - {str(e)}")
             return {
@@ -245,7 +222,6 @@ class GenerationGraph:
     def _poster_generation_node(self, state: GenerationState) -> GenerationState:
         """Execute poster generation"""
         try:
-            # Initialize vector store and embedding model
             vector_store = get_enhanced_vector_store()
             embedding_model = vector_store.embedding_model
 
@@ -254,7 +230,7 @@ class GenerationGraph:
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                vector_store=vector_store.vector_store,
                 embedding_model=embedding_model,
                 feedback_summary=state.get("feedback_summary"),
                 feedback_highlights=state.get("feedback_highlights"),
@@ -267,9 +243,7 @@ class GenerationGraph:
 
             designer = VisualDesignerAgent(context)
             new_state = asyncio.run(designer.execute(state))
-
             return new_state
-
         except Exception as e:
             return {
                 **state,
@@ -280,8 +254,6 @@ class GenerationGraph:
         """Execute poster finalization"""
         try:
             print("🎨 Poster Finalization Node: Starting poster finalization...")
-
-            # Initialize vector store and embedding model
             vector_store = get_enhanced_vector_store()
             embedding_model = vector_store.embedding_model
 
@@ -301,7 +273,6 @@ class GenerationGraph:
 
             print(f"🎨 Poster Finalization Node: Completed. Finalized: {new_state.get('poster_finalized', False)}")
             return new_state
-
         except Exception as e:
             print(f"❌ Poster Finalization Node: Error - {str(e)}")
             return {
@@ -312,9 +283,9 @@ class GenerationGraph:
             }
 
     def _video_generation_node(self, state: GenerationState) -> GenerationState:
-        """Execute video generation"""
+        """Execute video generation - now generates actual video GIF"""
         try:
-            # Initialize vector store and embedding model
+            print("🎬 Video Generation Node: Starting video generation...")
             vector_store = get_enhanced_vector_store()
             embedding_model = vector_store.embedding_model
 
@@ -323,26 +294,34 @@ class GenerationGraph:
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
-                embedding_model=embedding_model
+                vector_store=vector_store.vector_store,
+                embedding_model=embedding_model,
+                feedback_summary=state.get("feedback_summary"),
+                feedback_highlights=state.get("feedback_highlights"),
+                feedback_suggestions=state.get("feedback_suggestions"),
+                feedback_keywords=state.get("feedback_keywords"),
+                feedback_avg_rating=state.get("feedback_avg_rating"),
+                logo_data=state.get("logo_data"),
+                logo_position=state.get("logo_position", "top-right")
             )
 
             scriptwriter = VideoScriptwriterAgent(context)
             new_state = asyncio.run(scriptwriter.execute(state))
 
+            print(f"🎬 Video Generation Node: Completed. Video URL: {new_state.get('video_gif_url', 'None')[:50]}...")
             return new_state
-
         except Exception as e:
+            print(f"❌ Video Generation Node: Error - {str(e)}")
             return {
                 **state,
-                "errors": state.get("errors", []) + [f"Video generation error: {str(e)}"]
+                "errors": state.get("errors", []) + [f"Video generation error: {str(e)}"],
+                "video_error": str(e)
             }
 
     def _quality_assurance_node(self, state: GenerationState) -> GenerationState:
         """Execute quality assurance"""
         print(f"QA Node: Processing state with generated_text: '{state.get('generated_text', '')[:50]}...'")
         try:
-            # Initialize vector store and embedding model
             vector_store = get_enhanced_vector_store()
             embedding_model = vector_store.embedding_model
 
@@ -351,7 +330,7 @@ class GenerationGraph:
                 tone=state["tone"],
                 brand_guidelines=state.get("brand_guidelines"),
                 input_text=state["input"],
-                vector_store=vector_store.vector_store,  # Pass the actual vector store, not the enhanced one
+                vector_store=vector_store.vector_store,
                 embedding_model=embedding_model
             )
 
@@ -360,7 +339,6 @@ class GenerationGraph:
 
             print(f"QA Node: Completed. Final text set to: '{new_state.get('final_text', '')[:50]}...'")
             return new_state
-
         except Exception as e:
             print(f"QA Node: Error - {str(e)}")
             return {
@@ -371,13 +349,9 @@ class GenerationGraph:
     def _refinement_node(self, state: GenerationState) -> GenerationState:
         """Refine outputs based on QA feedback"""
         try:
-            # Simple refinement logic - in production, this would use the LLM again
-            # For now, we'll just mark the current outputs as final
-
             quality_scores = state.get("quality_scores", {})
             overall_score = sum(quality_scores.values()) / len(quality_scores) if quality_scores else 5.0
 
-            # If quality is good enough, mark as final
             if overall_score >= 7.0:
                 return {
                     **state,
@@ -386,38 +360,15 @@ class GenerationGraph:
                     "final_video_script": state.get("video_script", "")
                 }
             else:
-                # Mark for further refinement
                 return {
                     **state,
                     "retry_count": state.get("retry_count", 0) + 1
                 }
-
         except Exception as e:
             return {
                 **state,
                 "errors": state.get("errors", []) + [f"Refinement error: {str(e)}"]
             }
-
-    def _error_handler_node(self, state: GenerationState) -> GenerationState:
-        """Handle errors and provide fallbacks"""
-        errors = state.get("errors", [])
-
-        if errors:
-            # Log errors and provide fallback content
-            print(f"Generation errors: {errors}")
-
-            # Provide basic fallback content
-            fallback_state = {
-                **state,
-                "generated_text": f"Generated content for {state['platform']} - {state['input']}",
-                "poster_prompt": f"Create a {state['tone']} poster for {state['platform']} featuring: {state['input']}",
-                "video_script": f"SCENE 1: Show product/service\nNARRATION: {state['input']}\n\nSCENE 2: Call to action\nNARRATION: Visit us today!",
-                "errors": errors
-            }
-
-            return fallback_state
-
-        return state
 
     def _should_refine(self, state: GenerationState) -> str:
         """Determine if refinement is needed"""
@@ -427,7 +378,6 @@ class GenerationGraph:
 
         overall_score = sum(quality_scores.values()) / len(quality_scores)
 
-        # Refine if quality is below threshold or retry count is low
         if overall_score < 7.0 and state.get("retry_count", 0) < 2:
             return "refine"
         else:
@@ -436,8 +386,6 @@ class GenerationGraph:
     def _should_continue_refinement(self, state: GenerationState) -> str:
         """Determine if refinement should continue"""
         retry_count = state.get("retry_count", 0)
-
-        # Stop refinement after 2 attempts
         if retry_count >= 2:
             return "complete"
         else:
@@ -446,7 +394,6 @@ class GenerationGraph:
     async def run(self, initial_state: GenerationState) -> GenerationState:
         """Run the complete generation workflow"""
         try:
-            # Ensure all required state keys are initialized
             complete_state = {
                 "input": initial_state.get("input", ""),
                 "platform": initial_state.get("platform", ""),
@@ -475,6 +422,12 @@ class GenerationGraph:
                 "poster_generation_notes": initial_state.get("poster_generation_notes"),
                 "poster_error": initial_state.get("poster_error"),
                 "video_script": initial_state.get("video_script", ""),
+                "video_gif_url": initial_state.get("video_gif_url"),
+                "video_gif_file_path": initial_state.get("video_gif_file_path"),
+                "video_gif_filename": initial_state.get("video_gif_filename"),
+                "video_generation_notes": initial_state.get("video_generation_notes"),
+                "video_error": initial_state.get("video_error"),
+                "video_frame_prompts": initial_state.get("video_frame_prompts"),
                 "copywriter_notes": initial_state.get("copywriter_notes", ""),
                 "visual_designer_notes": initial_state.get("visual_designer_notes", ""),
                 "video_scriptwriter_notes": initial_state.get("video_scriptwriter_notes", ""),
@@ -496,7 +449,6 @@ class GenerationGraph:
             result = await self.graph.ainvoke(complete_state)
             return result
         except Exception as e:
-            # Return state with error information
             return {
                 **initial_state,
                 "errors": initial_state.get("errors", []) + [f"Workflow error: {str(e)}"],
@@ -507,7 +459,6 @@ def create_generation_graph(model_name: str = "microsoft/DialoGPT-medium") -> Ge
     """Factory function to create generation graph"""
     return GenerationGraph(model_name)
 
-# Convenience function for running the workflow
 async def run_generation_workflow(
     input_text: str,
     platform: str,
@@ -568,8 +519,18 @@ async def run_generation_workflow(
         "poster_generation_notes": None,
         "poster_error": None,
         "video_script": "",
+        "video_gif_url": None,
+        "video_gif_file_path": None,
+        "video_gif_filename": None,
+        "video_generation_notes": None,
+        "video_error": None,
+        "video_frame_prompts": None,
         "copywriter_notes": "",
         "visual_designer_notes": "",
+        "video_scriptwriter_notes": "",
+        "quality_scores": {},
+        "validation_feedback": {},
+        "qa_notes": "",
         "final_text": "",
         "final_poster_prompt": "",
         "final_video_script": "",
@@ -586,27 +547,43 @@ async def run_generation_workflow(
     graph = create_generation_graph(model_name)
     result = await graph.run(initial_state)
 
-    # Extract final outputs - prefer final fields, fallback to generated fields
+    # Extract final outputs
     final_text = result.get("final_text", result.get("generated_text", ""))
     final_poster = result.get("final_poster_prompt", result.get("poster_prompt", ""))
     final_video = result.get("final_video_script", result.get("video_script", ""))
     final_poster_url = result.get("poster_url")
+    final_video_gif_url = result.get("video_gif_url")
 
-    # Only print completion when both text and poster are requested and completed
+    # Print completion summary
     output_types = result.get("output_types", [])
-    if "text" in output_types and "poster" in output_types:
-        if final_text and final_poster_url:  # Both text and poster URL exist
-            print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: Generated successfully, Video: '{final_video[:30]}...'")
+    completion_parts = []
+    
+    if "text" in output_types:
+        completion_parts.append(f"Text: '{final_text[:50]}...'")
+    
+    if "poster" in output_types:
+        if final_poster_url:
+            completion_parts.append("Poster: Generated successfully")
         else:
-            print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: Failed, Video: '{final_video[:30]}...'")
-    else:
-        print(f"Workflow completed. Text: '{final_text[:50]}...', Poster: '{final_poster[:30]}...', Video: '{final_video[:30]}...'")
+            completion_parts.append("Poster: Failed")
+    
+    if "video" in output_types:
+        if final_video_gif_url:
+            completion_parts.append("Video GIF: Generated successfully")
+        else:
+            completion_parts.append(f"Video Script: '{final_video[:30]}...'")
+    
+    print(f"Workflow completed. {', '.join(completion_parts)}")
 
     return {
         "text": final_text,
         "poster_prompt": final_poster,
         "poster_url": final_poster_url,
         "video_script": final_video,
+        "video_gif_url": final_video_gif_url,
+        "video_gif_file_path": result.get("video_gif_file_path"),
+        "video_gif_filename": result.get("video_gif_filename"),
+        "video_frame_prompts": result.get("video_frame_prompts"),
         "quality_scores": result.get("quality_scores", {}),
         "validation_feedback": result.get("validation_feedback", {}),
         "errors": result.get("errors", [])

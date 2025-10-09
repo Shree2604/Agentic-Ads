@@ -1,48 +1,74 @@
 import { useCallback } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import { useAppState } from './useAppState';
 import { useApiData } from './useApiData';
 
 export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, apiData: ReturnType<typeof useApiData>) => {
+  const normalizedApiBase = (API_BASE_URL || '').replace(/\/+$/, '') || 'http://localhost:8000/api';
+  const backendBaseUrl = normalizedApiBase.replace(/\/api(?:\/.*)?$/i, '') || 'http://localhost:8000';
+
+  const resolveBackendUrl = useCallback((path?: string | null) => {
+    if (!path) {
+      return undefined;
+    }
+
+    if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:')) {
+      return path;
+    }
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${backendBaseUrl}${normalizedPath}`;
+  }, [backendBaseUrl]);
+
+  const downloadAsset = useCallback(async (downloadUrl: string, filename: string) => {
+    const response = await fetch(downloadUrl);
+
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    console.log(`📥 Downloaded ${blob.size} bytes from ${downloadUrl}`);
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }, []);
+
+  const deriveFilename = (url: string, fallback: string) => {
+    try {
+      const parsed = new URL(url, window.location.href);
+      const segments = parsed.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        return segments[segments.length - 1];
+      }
+    } catch (error) {
+      console.warn('⚠️ Unable to derive filename from URL:', url, error);
+    }
+
+    const sanitized = url.split('/').filter(Boolean).pop();
+    return sanitized || fallback;
+  };
+
   const handleActionClick = useCallback(async (type: string) => {
     // Handle download actions directly first
     if (type === 'download-poster' && appState.result?.poster_url) {
       try {
         console.log('📥 Starting poster download...');
+        const downloadUrl = resolveBackendUrl(appState.result.poster_url);
 
-        // Construct the full backend URL for downloads
-        const backendUrl = 'http://localhost:8000'; // Backend runs on port 8000
-        const downloadUrl = appState.result.poster_url.startsWith('http')
-          ? appState.result.poster_url
-          : `${backendUrl}${appState.result.poster_url}`;
-
-        console.log('📥 Download URL:', downloadUrl);
-
-        // Fetch the file from the download endpoint
-        const response = await fetch(downloadUrl);
-
-        if (!response.ok) {
-          console.error('❌ Download failed:', response.status, response.statusText);
-          alert(`Download failed: ${response.status} ${response.statusText}`);
+        if (!downloadUrl) {
+          alert('Poster file is not available yet. Please try again shortly.');
           return;
         }
 
-        // Get the filename from the URL
-        const urlParts = appState.result.poster_url.split('/');
-        const filename = urlParts[urlParts.length - 1] || 'poster.png';
-
-        // Create blob from response
-        const blob = await response.blob();
-        console.log(`📥 Downloaded ${blob.size} bytes`);
-
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        const filename = deriveFilename(downloadUrl, 'generated-poster.png');
+        await downloadAsset(downloadUrl, filename);
 
         console.log('✅ Poster download completed');
 
@@ -57,16 +83,38 @@ export const useFeedbackHandler = (appState: ReturnType<typeof useAppState>, api
     }
 
     if (type === 'download-video') {
-      // Show feedback modal for video download
-      appState.setFeedbackType('download-video');
-      appState.setShowFeedbackModal(true);
+      if (!appState.result?.videoUrl) {
+        alert('Video file is not available yet. Please try again once the GIF is ready.');
+        return;
+      }
+
+      try {
+        console.log('📥 Starting video download...');
+        const downloadUrl = resolveBackendUrl(appState.result.videoUrl);
+
+        if (!downloadUrl) {
+          alert('Video file is not available yet. Please try again once the GIF is ready.');
+          return;
+        }
+
+        const filename = appState.result.videoFilename || deriveFilename(downloadUrl, 'generated-video.gif');
+        await downloadAsset(downloadUrl, filename);
+
+        console.log('✅ Video download completed');
+
+        appState.setFeedbackType('download-video');
+        appState.setShowFeedbackModal(true);
+      } catch (error) {
+        console.error('❌ Video download error:', error);
+        alert('Video download failed. Please check the console for details.');
+      }
       return;
     }
 
     // For other actions, just show feedback modal
     appState.setFeedbackType(type as any);
     appState.setShowFeedbackModal(true);
-  }, [appState]);
+  }, [appState, deriveFilename, downloadAsset, resolveBackendUrl]);
 
   const submitFeedback = useCallback(async () => {
     if (!appState.feedback.email || !appState.feedback.message) {

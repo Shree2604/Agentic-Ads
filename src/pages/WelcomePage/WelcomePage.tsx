@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Wand2, Type, Image, Video, Sparkles, Check, Github, Linkedin, Mail, ChevronDown, Globe } from 'lucide-react';
+import { Zap, Wand2, Type, Image, Video, Sparkles, Check, Github, Linkedin, Mail, ChevronDown, Globe, Phone } from 'lucide-react';
 import { Navigation } from '@/components/Navigation/Navigation';
 import { Button } from '@/components/ui/Button';
 import './WelcomePage.css';
@@ -175,76 +175,42 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
       <section className="developer-section" id="developer">
         <div className="container">
-          <h2 className="section-title">Meet the Developers</h2>
-          <p className="contact-info">If you are having any doubts or want to reach out to them you can contact them by using below links</p>
+          <h2 className="section-title">Meet the Developer</h2>
+          <p className="contact-info">If you are having any doubts or want to reach out to them you can contact him by using below links</p>
           <div className="developers-grid">
             <div className="developer-card">
               <div className="developer-image">
-                <div className="avatar-placeholder">
-                  <span>SM</span>
-                </div>
+                <img 
+                  src="/DSC_0454.JPG" 
+                  alt="Agentic Ads Logo" 
+                  className="developer-logo"
+                />
               </div>
               <div className="developer-info">
-                <h3>Shreeraj Mummidivarapu</h3>
-                <p className="developer-title">Full Stack AI Developer</p>
+                <div className="developer-heading">
+                  <h3>Shreeraj Mummidivarapu</h3>
+                  <p className="developer-title">BTech Final Year At IIIT Sricity <br></br> AI Dev At Vinfinet Technologies <br></br> Full Stack Agentic AI Developer <br></br> Edge, Federated & Transparent AI Researcher </p>
+                </div>
                 <div className="developer-links">
-                  <a href="https://github.com/Shree2604" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
+                  <a href="https://github.com/Shree2604" target="_blank" rel="noopener noreferrer" className="social-link">
                     <Github size={20} />
+                    <span>GitHub</span>
                   </a>
-                  <a href="https://www.linkedin.com/in/m-shreeraj/" target="_blank" rel="noopener noreferrer" className="social-link" title="LinkedIn">
+                  <a href="https://www.linkedin.com/in/m-shreeraj/" target="_blank" rel="noopener noreferrer" className="social-link">
                     <Linkedin size={20} />
+                    <span>LinkedIn</span>
                   </a>
-                  <a href="mailto:shree.xai.dev@gmail.com" className="social-link" title="Email">
-                    <Mail size={20} />
-                  </a>
-                  <a href="https://shree-portfolio-ten.vercel.app/" target="_blank" rel="noopener noreferrer" className="social-link" title="Portfolio">
+                  <a href="https://shree-portfolio-ten.vercel.app/" target="_blank" rel="noopener noreferrer" className="social-link">
                     <Globe size={20} />
+                    <span>Portfolio</span>
                   </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="developer-card">
-              <div className="developer-image">
-                <div className="avatar-placeholder">
-                  <span>SS</span>
-                </div>
-              </div>
-              <div className="developer-info">
-                <h3>Sonohar Boggavarapu</h3>
-                <p className="developer-title">Frontend Developer</p>
-                <div className="developer-links">
-                  <a href="https://github.com/sonohar" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
-                    <Github size={20} />
-                  </a>
-                  <a href="https://linkedin.com/in/sonohar" target="_blank" rel="noopener noreferrer" className="social-link" title="LinkedIn">
-                    <Linkedin size={20} />
-                  </a>
-                  <a href="mailto:sonohar.dev@gmail.com" className="social-link" title="Email">
+                  <a href="mailto:shree.xai.dev@gmail.com" target="_blank" rel="noopener noreferrer" className="social-link">
                     <Mail size={20} />
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="developer-card">
-              <div className="developer-image">
-                <div className="avatar-placeholder">
-                  <span>AM</span>
-                </div>
-              </div>
-              <div className="developer-info">
-                <h3>Abhinash Talla</h3>
-                <p className="developer-title">Backend Developer</p>
-                <div className="developer-links">
-                  <a href="https://github.com/abhinash" target="_blank" rel="noopener noreferrer" className="social-link" title="GitHub">
-                    <Github size={20} />
-                  </a>
-                  <a href="https://linkedin.com/in/abhinash" target="_blank" rel="noopener noreferrer" className="social-link" title="LinkedIn">
-                    <Linkedin size={20} />
-                  </a>
-                  <a href="mailto:abhinash.dev@gmail.com" className="social-link" title="Email">
-                    <Mail size={20} />
+                    <span>shree.xai.dev@gmail.com</span>
+                  </a>                  
+                  <a href="tel:+918143272388" target="_blank" rel="noopener noreferrer" className="social-link">
+                    <Phone size={20} />
+                    <span>+91 8143272388</span>
                   </a>
                 </div>
               </div>

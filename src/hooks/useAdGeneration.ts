@@ -1,8 +1,31 @@
 import { useCallback } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import { useAppState } from './useAppState';
 import { useApiData } from './useApiData';
 
 export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiData: ReturnType<typeof useApiData>) => {
+
+  const normalizedApiBase = (API_BASE_URL || '').replace(/\/+$/, '') || 'http://localhost:8000/api';
+  const backendBaseUrl = normalizedApiBase.replace(/\/api(?:\/.*)?$/i, '') || 'http://localhost:8000';
+  const buildApiUrl = (endpoint: string) => `${normalizedApiBase}/rag/${endpoint}`;
+  const resolveBackendUrl = (path?: string | null) => {
+    if (!path) {
+      return undefined;
+    }
+
+    if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:')) {
+      return path;
+    }
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${backendBaseUrl}${normalizedPath}`;
+  };
+
+  const fallbackText = "🤖 AI generation temporarily unavailable. Using smart templates instead.\n\n🚀 Ready to level up your business? Our premium solutions deliver exceptional results!";
+  const fallbackPosterPrompt = "Create a stunning visual advertisement featuring premium quality and professional design elements for maximum engagement.";
+  const fallbackPosterPreview = "https://via.placeholder.com/1080x1080/FF6B6B/ffffff?text=Generated+Poster";
+  const fallbackVideoScript = "SCENE 1: Dynamic opening with energetic music\nNARRATION: Transform your business today!\n\nSCENE 2: Show product benefits\nNARRATION: See the difference quality makes\n\nSCENE 3: Strong call-to-action\nNARRATION: Contact us now for premium solutions!";
+
 
   const handleGenerate = useCallback(async () => {
     appState.setGenerating(true);
@@ -12,7 +35,8 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
       const hasLogo = !!appState.formData.logo;
       const endpoint = hasLogo ? 'generate-with-logo' : 'generate';
 
-      console.log('Making RAG API request to:', `http://localhost:8000/api/rag/${endpoint}`);
+      const apiEndpoint = buildApiUrl(endpoint);
+      console.log('Making RAG API request to:', apiEndpoint);
       console.log('Request payload:', {
         platform: appState.formData.platform,
         tone: appState.formData.tone,
@@ -20,7 +44,7 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
         outputs: appState.formData.outputs,
         brand_guidelines: appState.formData.brandGuidelines || undefined,
         logo_file: hasLogo ? 'file_provided' : undefined,
-        logo_position: 'top-right',
+        logo_position: appState.formData.logoPosition || 'top-right',
       });
 
       let response: Response;
@@ -35,16 +59,16 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
         if (appState.formData.brandGuidelines) {
           formData.append('brand_guidelines', appState.formData.brandGuidelines);
         }
-        formData.append('logo_position', 'top-right');
+        formData.append('logo_position', appState.formData.logoPosition || 'top-right');
         formData.append('logo_file', appState.formData.logo!);
 
-        response = await fetch(`http://localhost:8000/api/rag/${endpoint}`, {
+        response = await fetch(apiEndpoint, {
           method: 'POST',
           body: formData, // No Content-Type header needed for FormData
         });
       } else {
         // Use JSON for requests without logo
-        response = await fetch(`http://localhost:8000/api/rag/${endpoint}`, {
+        response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -55,7 +79,7 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
             ad_text: appState.formData.adText,
             outputs: appState.formData.outputs,
             brand_guidelines: appState.formData.brandGuidelines || undefined,
-            logo_position: 'top-right',
+            logo_position: appState.formData.logoPosition || 'top-right',
           }),
         });
       }
@@ -77,6 +101,9 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
         console.warn('RAG generation completed with warnings:', result.errors);
       }
 
+      const posterImageUrl = resolveBackendUrl(result.poster_url);
+      const videoGifUrl = resolveBackendUrl(result.video_gif_url);
+
       // Save generation history for all users (not just admins)
       const newGeneration = {
         id: Date.now(), // Use timestamp as ID for now
@@ -87,7 +114,7 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
         adText: appState.formData.adText,
         outputs: appState.formData.outputs.map(o => o.charAt(0).toUpperCase() + o.slice(1)).join(', '),
         status: 'Completed'
-      };
+      }
 
       try {
         await apiData.addGenerationHistory(newGeneration);
@@ -103,25 +130,23 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
       console.log('RAG Generation result.poster_prompt:', result.poster_prompt);
       console.log('RAG Generation result.poster_url:', result.poster_url);
       console.log('RAG Generation result.video_script:', result.video_script);
+      console.log('RAG Generation result.video_gif_url:', result.video_gif_url);
+      console.log('RAG Generation result.video_gif_filename:', result.video_gif_filename);
 
       // Check if we got empty results (indicating API issues)
-      const hasEmptyResults = !result.text && !result.poster_prompt && !result.video_script;
+      const hasEmptyResults = !result.text && !result.poster_prompt && !result.poster_url && !result.video_script && !result.video_gif_url;
       console.log('hasEmptyResults:', hasEmptyResults);
       if (hasEmptyResults) {
         console.warn('No content received from RAG API - all fields are empty');
       }
 
       appState.setResult({
-        rewrittenText: result.text || (hasEmptyResults ? 
-          "🤖 AI generation temporarily unavailable. Using smart templates instead.\n\n🚀 Ready to level up your business? Our premium solutions deliver exceptional results!" :
-          "Generated content not available"),
-        posterUrl: result.poster_prompt || (hasEmptyResults ? 
-          "Create a stunning visual advertisement featuring premium quality and professional design elements for maximum engagement." :
-          "Poster prompt not generated"),
-        poster_url: result.poster_url || undefined, // New base64 poster field
-        videoUrl: result.video_script || (hasEmptyResults ? 
-          "SCENE 1: Dynamic opening with energetic music\nNARRATION: Transform your business today!\n\nSCENE 2: Show product benefits\nNARRATION: See the difference quality makes\n\nSCENE 3: Strong call-to-action\nNARRATION: Contact us now for premium solutions!" :
-          "Video script not generated"),
+        rewrittenText: result.text || (hasEmptyResults ? fallbackText : 'Generated content not available'),
+        posterUrl: result.poster_prompt || (hasEmptyResults ? fallbackPosterPrompt : 'Poster prompt not generated'),
+        poster_url: posterImageUrl,
+        videoUrl: videoGifUrl,
+        videoScript: result.video_script || (hasEmptyResults ? fallbackVideoScript : 'Video script not generated'),
+        videoFilename: result.video_gif_filename || undefined,
         qualityScores: result.quality_scores || {},
         validationFeedback: result.validation_feedback || {}
       });
@@ -150,14 +175,17 @@ export const useAdGeneration = (appState: ReturnType<typeof useAppState>, apiDat
 
       // Provide fallback result
       appState.setResult({
-        rewrittenText: "🚀 Ready to level up your fitness game? Our revolutionary app brings personal training to your pocket! Join 10K+ users transforming their lives. #FitnessRevolution #GetFit",
-        posterUrl: "https://via.placeholder.com/1080x1080/FF6B6B/ffffff?text=Generated+Poster",
-        videoUrl: "https://via.placeholder.com/1080x1920/4ECDC4/ffffff?text=Generated+Video"
+        rewrittenText: fallbackText,
+        posterUrl: fallbackPosterPrompt,
+        poster_url: fallbackPosterPreview,
+        videoUrl: undefined,
+        videoScript: fallbackVideoScript,
+        videoFilename: undefined
       });
     } finally {
       appState.setGenerating(false);
     }
-  }, [appState, apiData]);
+  }, [appState, apiData, buildApiUrl, resolveBackendUrl, fallbackPosterPrompt, fallbackPosterPreview, fallbackText, fallbackVideoScript]);
 
   return { handleGenerate };
 };

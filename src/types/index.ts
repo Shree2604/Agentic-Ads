@@ -5,13 +5,16 @@ export interface FormData {
   outputs: string[];
   logo?: File;
   brandGuidelines?: string;
+  logoPosition?: string;
 }
 
 export interface GenerationResult {
   rewrittenText: string;
   posterUrl: string;
   poster_url?: string; // For base64 encoded poster image
-  videoUrl: string;
+  videoUrl?: string;
+  videoScript: string;
+  videoFilename?: string;
   qualityScores?: Record<string, number>;
   validationFeedback?: Record<string, string>;
 }
