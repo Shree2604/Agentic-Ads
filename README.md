@@ -2,6 +2,14 @@
 
 Transform your ideas into platform-perfect ads with AI-powered multimodal generation. Create stunning text, images, and videos optimized for every platform—all in seconds, completely free.
 
+## 🎥 Demo Videos
+
+### For Technical Users
+[![Technical Demo](https://img.youtube.com/vi/4_i3H8mvVZk/0.jpg)](https://www.youtube.com/watch?v=4_i3H8mvVZk)
+
+### For Non-Technical Users
+[![User Demo](https://img.youtube.com/vi/dQw4w9WgXcQ/0.jpg)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+
 ## 🚀 Features
 
 - **Multi-Platform Support**: Generate ads for Instagram, LinkedIn, Twitter, and YouTube
@@ -16,15 +24,34 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18 with TypeScript, Vite, Lucide React icons
-- **Backend**: FastAPI with Python 3.10+, MongoDB with Motor (async driver)
-- **AI/ML Stack**: LangGraph, LangChain, Hugging Face Transformers, ChromaDB
-- **Vector Database**: ChromaDB with FAISS for similarity search
-- **Authentication**: JWT-based admin login with bcrypt password hashing
+### Frontend
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **UI Components**: Custom components with CSS Modules
+- **Icons**: Lucide React
+- **State Management**: React Hooks with Context API
 - **Styling**: CSS3 with CSS Variables and Glass Morphism effects
-- **State Management**: React Hooks (Custom hooks following SOLID principles)
-- **Data Persistence**: RESTful API with MongoDB backend
-- **Charts & Visualizations**: Custom SVG-based charts for analytics
+- **Charts**: Custom SVG-based visualizations
+
+### Backend
+- **Framework**: FastAPI (Python 3.10+)
+- **Database**: MongoDB with Motor (async driver)
+- **Authentication**: JWT with bcrypt password hashing
+- **API**: RESTful architecture with WebSocket support
+
+### AI/ML Stack
+- **Orchestration**: LangGraph for multi-agent workflows
+- **LLM Framework**: LangChain
+- **Models**: Hugging Face Transformers
+- **Vector Database**: ChromaDB with FAISS for similarity search
+- **Knowledge Base**: RAG (Retrieval-Augmented Generation) system
+
+### Multi-Agent System
+- **Content Researcher**: Gathers and analyzes information
+- **Copywriter Agent**: Generates compelling ad copy
+- **Visual Designer**: Creates engaging visual content
+- **Video Scriptwriter**: Produces video scripts and storyboards
+- **Quality Assurance**: Ensures brand consistency and quality
 
 ## ⚡ Quick Start
 
@@ -32,6 +59,27 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
 - **Backend**: Python 3.10 or higher (required for AI/ML dependencies)
 - **Frontend**: Node.js 16+, npm or yarn
 - **Database**: MongoDB (local or Atlas cluster)
+- **Vector Database**: ChromaDB for RAG system
+- **Hugging Face API Key**: For accessing AI models
+
+### Environment Setup
+
+1. Create a `.env` file in the root directory with the following variables:
+```env
+# MongoDB Configuration
+MONGODB_URI=mongodb://localhost:27017/agenticads
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_here
+JWT_EXPIRE=24h
+
+# Hugging Face
+HUGGINGFACE_API_KEY=your_huggingface_api_key
+
+# Vector Database
+CHROMA_DB_PATH=./chroma_db
+
+```
 
 ### Get Started in Minutes
 
@@ -46,7 +94,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-**Note**: Full setup instructions available in [setup.md](setup.md)
+**Note**: Make sure to set up your environment variables before starting the application.
 
 ## 🎯 Usage
 
