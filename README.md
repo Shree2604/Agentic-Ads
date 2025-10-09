@@ -4,11 +4,23 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
 
 ## 🎥 Demo Videos
 
-### For Technical Users
-[![Technical Demo](https://img.youtube.com/vi/4_i3H8mvVZk/0.jpg)](https://www.youtube.com/watch?v=4_i3H8mvVZk)
-
-### For Non-Technical Users
-[![User Demo](https://img.youtube.com/vi/dQw4w9WgXcQ/0.jpg)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+<div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin: 2rem 0;">
+  <div style="flex: 1; min-width: 300px;">
+    <h3>For Technical Users</h3>
+    <a href="https://www.youtube.com/watch?v=4_i3H8mvVZk" target="_blank">
+      <img src="https://img.youtube.com/vi/4_i3H8mvVZk/maxresdefault.jpg" alt="Technical Demo" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    </a>
+    <p style="text-align: center; margin-top: 8px; color: #666;">Click to watch on YouTube</p>
+  </div>
+  
+  <div style="flex: 1; min-width: 300px;">
+    <h3>For Non-Technical Users</h3>
+    <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">
+      <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" alt="User Demo" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    </a>
+    <p style="text-align: center; margin-top: 8px; color: #666;">Click to watch on YouTube</p>
+  </div>
+</div>
 
 ## 🚀 Features
 
