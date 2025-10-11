@@ -144,7 +144,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 <iframe
                   width="100%"
                   height="400"
-                  src="https://www.youtube.com/embed/4_i3H8mvVZk?autoplay=0&showinfo=0&controls=1"
+                  src="https://www.youtube.com/embed/i5MN8W6xBjw?autoplay=0&showinfo=0&controls=1"
                   title="AgenticAds Technical Demo"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -161,7 +161,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
                 <iframe
                   width="100%"
                   height="400"
-                  src="https://www.youtube.com/embed/4_i3H8mvVZk?autoplay=0&showinfo=0&controls=1"
+                  src="https://www.youtube.com/embed/i0wvofuzU-Y?autoplay=0&showinfo=0&controls=1"
                   title="AgenticAds User Demo"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
