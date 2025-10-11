@@ -14,7 +14,7 @@ Transform your ideas into platform-perfect ads with AI-powered multimodal genera
   
   <div style="flex: 0 0 500px; min-width: 0;">
     <h3 style="text-align: center; margin-bottom: 15px;">For Non-Technical Users</h3>
-    <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" style="display: block;">
+    <a href="https://youtu.be/i0wvofuzU-Y" target="_blank" style="display: block;">
       <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" alt="User Demo" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease;">
     </a>
   </div>
